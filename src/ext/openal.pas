@@ -71,9 +71,15 @@ const
   callibname='libopenal.so';
   calutlibname='libalut.so';
 {$ENDIF}
+{$IFDEF DARWIN}
+  callibname='/System/Library/Frameworks/OpenAL.framework/OpenAL';
+  calutlibname='';
+{$ENDIF}
 
 
 type
+  TALibraryHandle = {$IFDEF MSWindows}THandle{$ELSE}NativeUInt{$ENDIF};
+
   // OpenAL boolean type.
   TALboolean = Boolean;
   PALboolean = ^TALboolean;
@@ -1893,11 +1899,11 @@ var
 {$ENDIF}
 
 var
-  LibHandle          : THandle = 0;
+  LibHandle          : TALibraryHandle = 0;
 {$IFDEF ALUT}
-  AlutLibHandle      : THandle = 0;
+  AlutLibHandle      : TALibraryHandle = 0;
 {$ENDIF}
-  EFXUtilLibHandle       : THandle = 0;
+  EFXUtilLibHandle       : TALibraryHandle = 0;
 
 {$IFDEF ALUT}
 function InitOpenAL(LibName: String = callibname;AlutLibName: String = calutlibname): Boolean;
@@ -1945,17 +1951,17 @@ function LoadLibraryEx(Name : PChar; Flags : LongInt) : Pointer; cdecl; external
 function GetProcAddressEx(Lib : Pointer; Name : PChar) : Pointer; cdecl; external LibraryLib name 'dlsym';
 function FreeLibraryEx(Lib : Pointer) : LongInt; cdecl; external LibraryLib name 'dlclose';
 
-function LoadLibrary(Name : PChar) : THandle;
+function LoadLibrary(Name : PChar) : TALibraryHandle;
 begin
- Result := THandle(LoadLibraryEx(Name, RTLD_LAZY));
+ Result := TALibraryHandle(LoadLibraryEx(Name, RTLD_LAZY));
 end;
 
-function GetProcAddress(LibHandle : THandle; ProcName : PChar) : Pointer;
+function GetProcAddress(LibHandle : TALibraryHandle; ProcName : PChar) : Pointer;
 begin
  Result := GetProcAddressEx(Pointer(LibHandle), ProcName);
 end;
 
-function FreeLibrary(LibHandle : THandle) : Boolean;
+function FreeLibrary(LibHandle : TALibraryHandle) : Boolean;
 begin
  if LibHandle = 0 then
    Result := False

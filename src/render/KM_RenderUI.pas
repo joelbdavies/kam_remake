@@ -3,7 +3,7 @@ unit KM_RenderUI;
 interface
 uses
   {$IFDEF WDC}
-  System.Generics.Collections,
+  Generics.Collections,
   {$ENDIF}
   {$IFDEF FPC}
   Generics.Collections,

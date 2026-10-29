@@ -3,7 +3,8 @@ unit KM_Video;
 interface
 uses
   SysUtils, SyncObjs, Types, Classes,
-  Messages, Generics.Collections,
+  {$IFDEF WDC} Messages, {$ENDIF}
+  Generics.Collections,
   KromOGLUtils
   {$IFDEF WDC} , UITypes {$ENDIF}
   {$IFDEF FPC} , Controls {$ENDIF}
@@ -97,7 +98,7 @@ var
 
 implementation
 uses
-  System.Math,
+  Math,
   dglOpenGL,
   KM_Render, KM_RenderTypes, KM_RenderUI, KM_ResLocales,
   KM_GameApp, KM_GameSettings,

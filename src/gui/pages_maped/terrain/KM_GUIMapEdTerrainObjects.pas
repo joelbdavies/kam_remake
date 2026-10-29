@@ -181,6 +181,7 @@ var
   //For brushes
   K: Integer;
   OT: TKMTerrainObjectType;
+  lblObjects, lblBrush: TKMLabel;
 begin
   inherited Create;
 
@@ -196,7 +197,7 @@ begin
   Panel_Objects.ScrollV_PadLeft := -20;
   Panel_Objects.AnchorsStretch;
 
-  var lblObjects := TKMLabel.Create(Panel_Objects, 0, TERRAIN_PAGE_TITLE_Y, Panel_Objects.Width, 0, gResTexts[TX_MAPED_OBJECTS], fntOutline, taCenter);
+  lblObjects := TKMLabel.Create(Panel_Objects, 0, TERRAIN_PAGE_TITLE_Y, Panel_Objects.Width, 0, gResTexts[TX_MAPED_OBJECTS], fntOutline, taCenter);
   lblObjects.Anchors := [anLeft, anTop, anRight];
 
   ObjectsScroll := TKMScrollBar.Create(Panel_Objects, 9, 295, Panel_Objects.Width - 9, 20, saHorizontal, bsGame);
@@ -304,7 +305,7 @@ begin
   // Objects brushes
   dy := 355;
 
-  var lblBrush := TKMLabel.Create(Panel_Objects, 9, NextTop(25), Panel_Objects.Width, 0, gResTexts[TX_MAPED_OBJECTS_BRUSH], fntOutline, taCenter);
+  lblBrush := TKMLabel.Create(Panel_Objects, 9, NextTop(25), Panel_Objects.Width, 0, gResTexts[TX_MAPED_OBJECTS_BRUSH], fntOutline, taCenter);
   lblBrush.Anchors := [anLeft, anTop, anRight];
 
   BrushSize := TKMTrackBar.Create(Panel_Objects, 9, dy + 3, (Panel_Objects.Width - (BTN_BRUSH_TYPE_S * 2) - 18) - 18, 4, MAPED_BRUSH_MAX_SIZE);
@@ -656,6 +657,7 @@ procedure TKMMapEdTerrainObjects.ObjectsBrushChange(Sender: TObject);
 var
   treeAgeHintTX: Integer;
   OT: TKMTerrainObjectType;
+  lblObjects, lblBrush: TKMLabel;
 begin
   gCursor.Mode := cmObjectsBrush;
 
@@ -767,6 +769,7 @@ var
   I: Integer;
   objIndex: Integer;
   OT: TKMTerrainObjectType;
+  lblObjects, lblBrush: TKMLabel;
 begin
   for I := 0 to 8 do
   begin

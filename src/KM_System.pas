@@ -40,7 +40,8 @@ var
 implementation
 uses
   SysUtils, Math,
-  Forms, Graphics;
+  Forms, Graphics
+  {$IFDEF DARWIN}, FPImage, GraphType, IntfGraphics {$ENDIF};
 
 const
   // Screen.Cursors[0] is used by System default cursor
@@ -95,7 +96,12 @@ var
   I, sx, sy, x, y: Integer;
   bm, bm2: TBitmap;
   iconInfo: TIconInfo;
+  {$IFDEF DARWIN}
+  cursorImage: TLazIntfImage;
+  rgba: Cardinal;
+  {$ELSE}
   Px: PRGBQuad;
+  {$ENDIF}
   h : THandle;
   path: PChar;
   rxData: PRXData;
@@ -106,6 +112,9 @@ begin
 
   bm  := TBitmap.Create; bm.HandleType  := bmDIB; bm.PixelFormat  := pf32bit;
   bm2 := TBitmap.Create; bm2.HandleType := bmDIB; bm2.PixelFormat := pf32bit;
+  {$IFDEF DARWIN}
+  cursorImage := TLazIntfImage.Create(0, 0, [riqfRGB, riqfAlpha]);
+  {$ENDIF}
 
   for C := Low(TKMCursorImageType) to kmcPaintBucket do
   begin
@@ -115,6 +124,10 @@ begin
       bm.Width  := 1; bm.Height  := 1;
       bm2.Width := 1; bm2.Height := 1;
       bm2.Canvas.Pixels[0,0] := clWhite; //Invisible mask, we don't care for Image color
+      {$IFDEF DARWIN}
+      cursorImage.SetSize(1, 1);
+      cursorImage.Colors[0, 0] := FPColor(0, 0, 0, 0);
+      {$ENDIF}
       iconInfo.xHotspot := 0;
       iconInfo.yHotspot := 0;
     end
@@ -128,12 +141,27 @@ begin
       sy := rxData.Size[CURSOR_SPRITE_INDEX[C]].Y;
       bm.Width  := sx; bm.Height  := sy;
       bm2.Width := sx; bm2.Height := sy;
+      {$IFDEF DARWIN}
+      cursorImage.SetSize(sx, sy);
+      {$ENDIF}
 
       for y := 0 to sy - 1 do
       begin
+        {$IFNDEF DARWIN}
         Px := bm.ScanLine[y];
+        {$ENDIF}
         for x := 0 to sx - 1 do
         begin
+          {$IFDEF DARWIN}
+          // Use a format-aware image: Cocoa bitmap handles need not retain the
+          // Windows BGRA scanline layout, and cached handles must be refreshed.
+          rgba := rxData.RGBA[CURSOR_SPRITE_INDEX[C], y*sx+x];
+          if rgba and $FF000000 = 0 then
+            cursorImage.Colors[x, y] := FPColor(0, 0, 0, 0)
+          else
+            cursorImage.Colors[x, y] := FPColor((rgba and $FF) * $101,
+              ((rgba shr 8) and $FF) * $101, ((rgba shr 16) and $FF) * $101, $FFFF);
+          {$ELSE}
           if rxData.RGBA[CURSOR_SPRITE_INDEX[C],y*sx+x] and $FF000000 = 0 then
             Px.rgbReserved := $00
           else
@@ -143,6 +171,7 @@ begin
           Px.rgbGreen := (rxData.RGBA[CURSOR_SPRITE_INDEX[C],y*sx+x] and $FF00) shr 8;
           Px.rgbRed   :=  rxData.RGBA[CURSOR_SPRITE_INDEX[C],y*sx+x] and $FF;
           Inc(Px);
+          {$ENDIF}
         end;
       end;
       //Load hotspot offsets from RX file, adding the manual offsets (normally 0)
@@ -154,6 +183,9 @@ begin
     //it works only from within the loop, means mask is recreated when we access canvas or something like that
     bm2.ReleaseMaskHandle;
 
+    {$IFDEF DARWIN}
+    bm.LoadFromIntfImage(cursorImage);
+    {$ENDIF}
     iconInfo.fIcon := False; //True=Icon, False=Cursor
     iconInfo.hbmColor := bm.Handle;
 
@@ -164,14 +196,21 @@ begin
       Screen.Cursors[Byte(C) + CURSOR_CNT_OFFSET] := CreateIconIndirect(iconInfo);
     {$ENDIF}
     {$IFDEF Unix}
+      {$IFDEF DARWIN}
+      IconInfo.hbmMask := 0; // Cocoa uses the explicit alpha channel, including the invisible cursor.
+      {$ELSE}
       bm2.Mask(clWhite);
       IconInfo.hbmMask  := bm2.MaskHandle;
+      {$ENDIF}
       Screen.Cursors[Byte(C) + CURSOR_CNT_OFFSET] :=  CreateIconIndirect(@IconInfo);
     {$ENDIF}
   end;
 
   bm.Free;
   bm2.Free;
+  {$IFDEF DARWIN}
+  cursorImage.Free;
+  {$ENDIF}
 
   {$IFDEF WDC}
   for I := Low(CUSTOM_CURSORS) to High(CUSTOM_CURSORS) do

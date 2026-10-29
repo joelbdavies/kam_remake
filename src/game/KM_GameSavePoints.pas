@@ -203,13 +203,15 @@ end;
 
 
 procedure TKMSavePointCollection.NewSavePointAndFree(var aStream: TKMemoryStream; aTick: Cardinal; aCursor: Integer; aWorkerThread: TKMWorkerThread);
+var
+  localStream: TKMemoryStream;
 begin
   if Self = nil then Exit;
 
   // Check if we don't have same tick save here too, since we work in multithread environment
   if ContainsTick(aTick) then Exit;
 
-  var localStream := aStream;
+  localStream := aStream;
   aStream := nil; // So caller doesn't use it by mistake
 
   {$IFDEF WDC}
@@ -218,8 +220,10 @@ begin
 
   aWorkerThread.QueueWork(
     procedure
+    var
+      S: TKMemoryStreamBinary;
     begin
-      var S := TKMemoryStreamBinary.Create;
+      S := TKMemoryStreamBinary.Create;
       try
         localStream.SaveToStreamCompressed(S);
       finally
@@ -244,10 +248,12 @@ end;
 
 
 procedure TKMSavePointCollection.NewSavePoint(aStream: TKMemoryStream; aTick: Cardinal; aCursor: Integer);
+var
+  S: TKMemoryStreamBinary;
 begin
   Lock;
   try
-    var S := TKMemoryStreamBinary.Create;
+    S := TKMemoryStreamBinary.Create;
     aStream.SaveToStreamCompressed(S);
 
     fSavePoints.Add(aTick, TKMSavePoint.Create(S, aTick, aCursor));
@@ -282,13 +288,14 @@ begin
   try
     aSaveStream.PlaceMarker('SavePoints');
     aSaveStream.Write(fLastTick);
-    aSaveStream.Write(fSavePoints.Count);
+    aSaveStream.Write(Integer(fSavePoints.Count));
 
     keyArray := fSavePoints.Keys.ToArray;
     {$IFNDEF FPC}
     TArray.Sort<Cardinal>(keyArray);
     {$ELSE}
-    SortCustom(keyArray, Low(keyArray), High(keyArray), SizeOf(keyArray[0]), CompareKeys);
+    if Length(keyArray) > 1 then
+      SortCustom(keyArray[0], Low(keyArray), High(keyArray), SizeOf(keyArray[0]), CompareKeys);
     {$ENDIF}
 
     //todo -cComplicated: potential OutOfMemory error in this cycle?
@@ -401,7 +408,8 @@ end;
 
 procedure TKMSavePointCollection.Load(aLoadStream: TKMemoryStream);
 var
-  cnt, cursor: Integer;
+  cnt, cursor, I: Integer;
+  stream: TKMemoryStreamBinary;
   tick, size: Cardinal;
   savePoint: TKMSavePoint;
 begin
@@ -415,14 +423,14 @@ begin
     aLoadStream.Read(fLastTick);
     aLoadStream.Read(cnt);
 
-    for var I := 0 to cnt - 1 do
+    for I := 0 to cnt - 1 do
     begin
       aLoadStream.CheckMarker('SavePoint');
       aLoadStream.Read(tick);
       aLoadStream.Read(cursor);
       aLoadStream.Read(size);
 
-      var stream := TKMemoryStreamBinary.Create;
+      stream := TKMemoryStreamBinary.Create;
       stream.CopyFrom(aLoadStream, size);
 
       savePoint := TKMSavePoint.Create(stream, tick, cursor);

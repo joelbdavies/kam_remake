@@ -64,6 +64,7 @@ uses
 
 implementation
 uses
+  {$IFDEF UNIX}BaseUnix,{$ENDIF}
   StrUtils, KM_CommonUtils,
   KM_Defaults;
 
@@ -157,7 +158,8 @@ end;
 procedure KMCopyFile(const aSrc, aDest: UnicodeString);
 begin
   {$IFDEF FPC}
-  CopyFile(pchar(aSrc), pchar(aDest), True);
+  if not FileUtil.CopyFile(UTF8Encode(aSrc), UTF8Encode(aDest), [cffPreserveTime]) then
+    raise EInOutError.CreateFmt('Cannot copy %s to %s', [aSrc, aDest]);
   {$ENDIF}
   {$IFDEF WDC}
   TFile.Copy(aSrc, aDest);
@@ -171,7 +173,8 @@ begin
     DeleteFile(aDest);
 
   {$IFDEF FPC}
-  CopyFile(pchar(aSrc), pchar(aDest), True);
+  if not FileUtil.CopyFile(UTF8Encode(aSrc), UTF8Encode(aDest), [cffPreserveTime]) then
+    raise EInOutError.CreateFmt('Cannot copy %s to %s', [aSrc, aDest]);
   {$ENDIF}
   {$IFDEF WDC}
   TFile.Copy(aSrc, aDest);
@@ -249,7 +252,8 @@ procedure KMDeleteFolder(const aPath: UnicodeString; aDeleteToBin: Boolean);
   {$ENDIF}
   begin
     {$IFDEF FPC}
-    DeleteDirectory(aPath, False);
+    if not DeleteDirectory(UTF8Encode(aPath), False) then
+      raise EInOutError.Create('Cannot delete directory ' + aPath);
     {$ENDIF}
     {$IFDEF WDC}
 
@@ -355,7 +359,10 @@ end;
 
 procedure KMRenameFolder(const aSourcePath, aDestPath: UnicodeString);
 begin
-  {$IFDEF FPC} RenameFile(aSourcePath, aDestPath); {$ENDIF}
+  {$IFDEF FPC}
+  if not RenameFileUTF8(UTF8Encode(aSourcePath), UTF8Encode(aDestPath)) then
+    raise EInOutError.CreateFmt('Cannot move %s to %s', [aSourcePath, aDestPath]);
+  {$ENDIF}
   {$IFDEF WDC} TDirectory.Move(aSourcePath, aDestPath); {$ENDIF}
 end;
 
@@ -367,7 +374,10 @@ begin
   if IsFilePath(aSourcePath) then
   begin
     if FileExists(aSourcePath) then
-      {$IFDEF FPC} RenameFile(aSourcePath, aDestPath); {$ENDIF}
+      {$IFDEF FPC}
+  if not RenameFileUTF8(UTF8Encode(aSourcePath), UTF8Encode(aDestPath)) then
+    raise EInOutError.CreateFmt('Cannot move %s to %s', [aSourcePath, aDestPath]);
+  {$ENDIF}
       {$IFDEF WDC} TFile.Move(aSourcePath, aDestPath); {$ENDIF}
   end
   else
@@ -466,6 +476,8 @@ begin
     EXIT;
 
   Result := Int64(info.nFileSizeLow) or Int64(info.nFileSizeHigh shl 32);
+  {$ELSE}
+  Result := FileSizeUTF8(aFilename);
   {$ENDIF}
 end;
 
@@ -481,7 +493,6 @@ procedure WriteText(const aText: string; aFilename: string; aEncoding: TEncoding
 var
   sl: TStringList;
 begin
-{$IFDEF WDC}
   sl := TStringList.Create;
   try
     sl.Text := aText;
@@ -489,7 +500,6 @@ begin
   finally
     sl.Free;
   end;
-{$ENDIF}
 end;
 
 
@@ -530,7 +540,7 @@ begin
   if Result then
     CloseHandle(hnd);
   {$ELSE}
-  Result := True; //todo -cPractical: add Read/Write permissions on lazarus / fpc
+  Result := DirectoryIsWritable(aDir);
   {$ENDIF}
 end;
 
@@ -629,10 +639,15 @@ begin
   aExec   := (CheckFileAccess(aPath, FILE_GENERIC_EXECUTE) = FILE_GENERIC_EXECUTE);
   {$ENDIF}
   {$IFDEF FPC}
-  // No folder permissions check for FPC yet
-  aRead   := True;
-  aWrite  := True;
-  aExec   := True;
+  {$IFDEF UNIX}
+  aRead := fpAccess(PChar(aPath), R_OK) = 0;
+  aWrite := fpAccess(PChar(aPath), W_OK) = 0;
+  aExec := fpAccess(PChar(aPath), X_OK) = 0;
+  {$ELSE}
+  aRead := DirectoryExists(aPath);
+  aWrite := DirectoryIsWritable(aPath);
+  aExec := aRead;
+  {$ENDIF}
   {$ENDIF}
 end;
 

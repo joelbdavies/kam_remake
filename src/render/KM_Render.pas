@@ -328,15 +328,18 @@ end;
 
 
 procedure TKMRender.SaveBufferToFile(aUseFBOBuffer: Boolean; var aWidth, aHeight: Integer; var aPixelData: TKMCardinalArray);
-{$IFDEF WDC}
 var
   I, K: Integer;
-{$ENDIF}
+  {$IFDEF FPC}
+  previousBuffer: GLint;
+  {$ENDIF}
 begin
-{$IFDEF WDC}
   aWidth := ScreenX;
   aHeight := ScreenY;
 
+  {$IFDEF FPC}
+  glGetIntegerv(GL_READ_BUFFER, @previousBuffer);
+  {$ENDIF}
   if aUseFBOBuffer then
   begin
     // Read from offscreen buffer
@@ -348,8 +351,15 @@ begin
     // Read from onscreen buffer
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
-  SetLength(aPixelData, aWidth * aHeight + 1);
+  {$IFDEF FPC}
+  // Render has already swapped the Cocoa double buffer.
+  if not aUseFBOBuffer then glReadBuffer(GL_FRONT);
+  {$ENDIF}
+  SetLength(aPixelData, aWidth * aHeight);
   glReadPixels(0, 0, aWidth, aHeight, GL_BGRA, GL_UNSIGNED_BYTE, @aPixelData[0]);
+  {$IFDEF FPC}
+  glReadBuffer(previousBuffer);
+  {$ENDIF}
 
   if aUseFBOBuffer then
     // Return to onscreen rendering:
@@ -359,7 +369,6 @@ begin
   for i := 0 to (aHeight div 2) - 1 do
     for K := 0 to aWidth - 1 do
       SwapInt(aPixelData[i * aWidth + K], aPixelData[((aHeight - 1) - i) * aWidth + K]);
-{$ENDIF}
 end;
 
 

@@ -649,8 +649,9 @@ end;
 procedure TKMHouse.AddDemandsOnActivate(aWasBuilt: Boolean);
 var
   W: TKMWareType;
+  I: Integer;
 begin
-  for var I := 1 to 4 do
+  for I := 1 to 4 do
   begin
     W := gRes.Houses[fType].WareInput[I];
     with gHands[Owner].Deliveries.Queue do
@@ -2233,6 +2234,7 @@ const
 var
   I: Integer;
   demandsRemoved, plannedToRemove, demandsToChange: Integer;
+  demandsCntToMaxWaresInHouse, actualDemandsNeeded, demandsCntToMaxLimit: Integer;
   waresMaxCnt: Word;
   resDelivering : Integer;
 begin
@@ -2247,13 +2249,13 @@ begin
     waresMaxCnt := GetWareDistribution(I);
 
     // Demands Cnt to have maximum allowed wares in house
-    var demandsCntToMaxWaresInHouse := waresMaxCnt - resDelivering;
+    demandsCntToMaxWaresInHouse := waresMaxCnt - resDelivering;
 
     // Actual demands needed (resDelivering except what is in the house)
-    var actualDemandsNeeded := (resDelivering - fWareIn[I]);
+    actualDemandsNeeded := (resDelivering - fWareIn[I]);
 
     // Number of new demands, but no more than the limit
-    var demandsCntToMaxLimit := WaresMaxDemands - actualDemandsNeeded;
+    demandsCntToMaxLimit := WaresMaxDemands - actualDemandsNeeded;
 
     demandsToChange := Min(demandsCntToMaxLimit, demandsCntToMaxWaresInHouse);
 

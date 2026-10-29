@@ -205,6 +205,7 @@ var
 
 implementation
 uses
+  {$IFDEF FPC} StreamEx, {$ENDIF}
   TypInfo,
   KromUtils, KM_ResTexts;
 

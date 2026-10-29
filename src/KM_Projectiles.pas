@@ -193,7 +193,7 @@ end;
 
 function TKMProjectiles.AimTargetHouse(const aStart: TKMPointF; aTarget: TKMHouse; aProjType: TKMProjectileType; aOwner: TKMUnit; aMaxRange, aMinRange: Single): Word;
 var
-  speed, arc: Single;
+  speed, arc, arcRandom: Single;
   distanceToHit, distanceInRange: Single;
   aim, target: TKMPointF;
 begin
@@ -207,7 +207,7 @@ begin
   distanceToHit := GetLength(aStart.X - target.X, aStart.Y - target.Y);
   distanceInRange := EnsureRange(distanceToHit, aMinRange, aMaxRange);
 
-  var arcRandom := KaMRandomS2(PROJECTILE_ARC[aProjType, 2]{$IFDEF DBG_RNG_SPY}, 'TKMProjectiles.AimTarget 8'{$ENDIF});
+  arcRandom := KaMRandomS2(PROJECTILE_ARC[aProjType, 2]{$IFDEF DBG_RNG_SPY}, 'TKMProjectiles.AimTarget 8'{$ENDIF});
   arc := Math.Max((distanceInRange - aMinRange) / (aMaxRange - aMinRange) * PROJECTILE_ARC[aProjType, 1] + arcRandom, 0);
 
   Result := AddItem(aStart, aim, target, speed, arc, aMaxRange, aProjType, aOwner);

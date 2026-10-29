@@ -120,6 +120,7 @@ const
 implementation
 uses
   TypInfo, Math,
+  {$IFDEF DARWIN}KM_ScriptingNative,{$ENDIF}
   {$IFDEF FPC}
   {$IFNDEF Unix}
   Hash,
@@ -348,6 +349,7 @@ function TKMScripting.ScriptOnUses(Sender: TPSPascalCompiler; const Name: AnsiSt
 
 var
   c: TPSCompileTimeClass;
+  {$IFDEF DARWIN}nativeTypeIndex: Integer;{$ENDIF}
 begin
   if Name = 'SYSTEM' then
   begin
@@ -452,6 +454,12 @@ begin
     Sender.AddTypeS('TKMUnitTypeSet', 'set of TKMUnitType');
     Sender.AddTypeS('TKMWareTypeSet', 'set of TKMWareType');
     //*Area-Types-Reg*//
+
+    {$IFDEF DARWIN}
+    for nativeTypeIndex := 0 to Sender.GetTypeCount - 1 do
+      if Sender.GetType(nativeTypeIndex).BaseType in [btArray, btStaticArray, btRecord, btSet] then
+        Sender.GetType(nativeTypeIndex).ExportName := True;
+    {$ENDIF}
 
     // Add CampaignData type and variable only after addition of all other custom types,
     // so those types could be used in the TKMCampaignData declaration
@@ -1194,6 +1202,7 @@ procedure TKMScripting.LinkRuntime;
   var
     I: Integer;
   begin
+    Result := '';
     //Check against our set of allowed types
     if not (aType.BaseType in VALID_GLOBAL_VAR_TYPES) then
     begin
@@ -1749,6 +1758,10 @@ begin
       Exit;
     end;
 
+    {$IFDEF DARWIN}
+    RegisterNativeScriptTypes(fExec);
+    {$ENDIF}
+
     if (fExec is TPSDebugExec) and TPSDebugExec(fExec).DebugEnabled then
       TPSDebugExec(fExec).LoadDebugData(fDebugByteCode);
 
@@ -2085,7 +2098,7 @@ begin
   {$IFNDEF FPC}
   Result := THashBobJenkins.GetHashValue(s);
   {$ELSE}
-  Result := BobJenkinsHash(s, Length(s), 0);
+  Result := BobJenkinsHash(s[1], Length(s), 0);
   {$ENDIF}
 end;
 

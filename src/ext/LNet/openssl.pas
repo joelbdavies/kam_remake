@@ -1270,6 +1270,8 @@ begin
   
   for i := Low(DLLVersions) to High(DLLVersions) do begin
     {$IFDEF DARWIN}
+    // macOS's unversioned SSL dylibs are aborting stubs, not a usable ABI.
+    if DLLVersions[i] = '' then Continue;
     Result := LoadLibrary(Value + DLLVersions[i] + '.dylib');
     {$ELSE}
     Result := LoadLibrary(Value + '.so' + DLLVersions[i]);
