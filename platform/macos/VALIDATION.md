@@ -4,8 +4,10 @@ Tested on 29 October 2026 on an Apple M4 running macOS Sequoia 15.8.1. The deplo
 
 ## Build identity
 
-- Source base: `ddb0a6cccfdd031c4c4ec6358a70827aa1e4ad8c` (r16406), with the local changes on `codex/macos-fpc-mvp`.
-- Current packaged executable SHA-256: `82de7e736cb2a40e9123e9a2ae4d9a25e6e682ac26d83811559606a50ddf8c76` (early handling of native editing commands; package includes Dock icon).
+- Current source base: upstream `11cd5fd0e10ae6e8cfce27493564e49cd8ee11d5` (r16421), integrated with the native port on `codex/macos-fpc-mvp`.
+- Original MVP source base: `ddb0a6cccfdd031c4c4ec6358a70827aa1e4ad8c` (r16406).
+- Current packaged executable SHA-256: `87eeb507f4c4b4959669dbb8a5e149708c11105803d43d1cdd884ea8c36c6422` (r16421 integration and native r16406 save/replay compatibility).
+- Previous native-command-fix executable SHA-256: `82de7e736cb2a40e9123e9a2ae4d9a25e6e682ac26d83811559606a50ddf8c76` (early handling of native editing commands; package includes Dock icon).
 - Previous Dock-icon executable SHA-256: `cade881b466f89c11dbd658c0815fff4900cb60bc371011dcc4ba42bf1b82a24` (save collections and callback-level keyboard checks).
 - Previous save/arrow-key executable SHA-256: `01a40c50c704d3afbff6b5e224fe6c4508201f5e71990e56f18a2a0c033c6479`.
 - Original MVP executable SHA-256: `6359811c98406bcd960164d21f4fb9bc9b197fbd8d7c94d67b2ea1bcc047ab8f` (the full campaign acceptance suite below).
@@ -13,7 +15,33 @@ Tested on 29 October 2026 on an Apple M4 running macOS Sequoia 15.8.1. The deplo
 - Free Pascal and Cocoa LCL were rebuilt from the revisions pinned in [README.md](README.md). No Lazarus IDE was used.
 - The app passes `codesign --verify --deep --strict`. Its library search path is `@executable_path/../Frameworks`; other linked libraries are supplied by macOS.
 
-The local app is installed at `~/Applications/KaM Remake.app`. All six installed bundle files, including the new icon, match the package byte for byte, and the installed signature verifies. Assets, settings, logs, saves and campaign progress live in `~/Library/Application Support/KaM Remake/`. Regression runs used disposable data directories, and all 39 player save files retained their SHA-256 hashes.
+The latest six-file app bundle is `assets.local/build/macos/KaM Remake.app`, with `CFBundleVersion` set to `16421` from the source revision. The previously installed r16406 app at `~/Applications/KaM Remake.app` was not replaced during this integration. Assets, settings, logs, saves and campaign progress live in `~/Library/Application Support/KaM Remake/`. All integration runs used disposable data directories, and all 39 original player save files retained their SHA-256 hashes.
+
+## r16421 integration results
+
+All 14 upstream commits through `11cd5fd0e` are integrated. The new Delphi-style `System.SysUtils` import was changed to the portable `SysUtils`; the full native game and all eleven probes compile with the pinned Free Pascal toolchain. Packaging derives its bundle version from `KM_Revision.inc`.
+
+Existing native r16406 games retain their original save/replay headers and animal-steering timing. New games use r16421 and the upstream animal-blocking fix. The existing header carries the simulation revision; no fields were added to the on-disk layout. Load-menu scanning, game loading, replay commands and checkpoint restoration share the bounded compatibility policy. Unknown versions remain rejected, and an active game rejects a replay companion from the other supported revision before reading commands. The unsupported-save debug override stays disabled in compatibility tests.
+
+Final evidence is under `assets.local/upstream-r16421/final/`:
+
+| Check | Result |
+| --- | --- |
+| Original player saves | All 10 native saves, including the tutorial saves and all five original autosaves, appeared valid to the normal Load menu, resumed 100 ticks, saved and reloaded with byte-identical simulation/checkpoint state. Headers remained r16406. `compatibility/results.json`. |
+| Legacy replay history | The original Town Tutorial4 replay reached tick 36,458; its continued copy reached tick 36,558. Both restored and resumed an original checkpoint without consistency errors. `compatibility/results.json`. |
+| Legacy simulation continuity | TSK2 and TPR3 resumed original r16406 fixtures and matched all 1,008 component snapshots from the earlier executable. `legacy-trajectories/results.json`. |
+| Current save/resume | Fresh r16421 TSK2 and TPR3 runs matched all 1,008 component snapshots across uninterrupted versus fresh-process save/resume execution. `regressions/results.json`. |
+| Collections and keyboard | All 13 collection cases, the callback keyboard suite and both native Cocoa responder paths passed. `regressions/results.json`. |
+| Upstream and version guards | Five checks passed: settings-tree replacement, walking past a pacing animal in a new game, a no-AI replay, unknown-version rejection and mismatched save/replay rejection. `regressions/results.json`. |
+| Retail campaigns | All 34 missions passed 600 ticks, rendering, save/reload, resumed simulation and the explicit victory/unlock test. The run started with fresh campaign progress and took 151.23 seconds. `campaigns/results.json`. |
+| Longer missions | TSK2, TPR3 and TPR14 passed 6,000 ticks plus the same rendering/save/progression checks, using seed 4. `campaigns-long/results.json`. |
+| Autosave endurance | Another simulated hour ended at tick 72,458 with all 60 consecutive minute autosaves, five checkpoints, successful named saves/overwrite and all five rotated saves reloaded/resumed. `autosave.log` and `autosave-results.json`. |
+| Native backends | Graphics/pixel readback, BASS/OpenAL audio and decoding, scripting ABI and data operations passed again on the final compiled probes. `backends/results.json`. |
+| Packaging and original files | The arm64 bundle passes strict code-signature verification. All 39 original player save files are byte-for-byte unchanged. `package-manifest.json` and `autosave-results.json`. |
+
+An additional unattended TSK20 endurance attempt on the integrated gameplay code ended in normal defeat at tick 1,377 with seed 4; it did not reach its 6,000-tick target. This is recorded in `assets.local/upstream-r16421/campaigns-long/TSK20.log` and is not counted as a passed endurance test. Its 600-tick retail acceptance test passed. Full campaign playthroughs and physical audible-beep confirmation remain manual checks.
+
+The older sections below retain the evidence and build attribution from the original r16406 port and subsequent input/save fixes.
 
 ## Automated checks
 
@@ -52,7 +80,7 @@ Evidence: `assets.local/save-regression-{before,after}.log`, `assets.local/save-
 
 ## Save/resume and full keyboard regressions
 
-These checks first passed on the Dock-icon build, with evidence in `assets.local/regression-tests-release/results.json`. They also pass on the current build in `assets.local/regression-tests-native-command-verified/results.json`, which adds the native application-dispatch regression described below.
+These checks first passed on the Dock-icon build, with evidence in `assets.local/regression-tests-release/results.json`. They also passed on the r16406 native-command-fix build in `assets.local/regression-tests-native-command-verified/results.json`, which adds the native application-dispatch regression described below.
 
 - TSK2 and TPR3 each ran to tick 6,000 with seed 4, compared against a save at tick 1,500 followed by a fresh-process reload. All 1,008 component snapshots matched byte for byte, including RNG state, resources, unit positions/tasks/orders, terrain, AI, pathfinding, projectiles and script state. Both paths received identical commands before and after the reload, including road construction; recruitment and formation commands were issued where available.
 - Pending AI equipment orders at counts 0, 1, 2 and 8 retained their live warrior IDs through an actual game save/load and left the queue after resuming.
@@ -70,11 +98,11 @@ The player confirmed that Backspace still produced a bell on the Dock-icon build
 
 The form now consumes editing, navigation, function keys and Control/Command shortcuts immediately after delivering key-down to the game. Printable keys remain available for the text-input event. Native controls retain their own input, and held-key tracking still receives key-up events.
 
-`KM_MacCocoaEventProbe` dispatches through `NSApp.sendEvent` with the window document and OpenGL view separately focused. Test-only method observers preserve and call Cocoa's original implementations, and are restored before cleanup. The old build fails because Backspace reaches native command processing after the game edits the title (`assets.local/cocoa-events-before.log`). On the current build, both routes consume editing/navigation/F1-F12 keys before native processing, and all 95 printable ASCII characters reach the save field exactly once. Evidence is in `assets.local/regression-tests-native-command-verified/cocoa-events.log`.
+`KM_MacCocoaEventProbe` dispatches through `NSApp.sendEvent` with the window document and OpenGL view separately focused. Test-only method observers preserve and call Cocoa's original implementations, and are restored before cleanup. The old build fails because Backspace reaches native command processing after the game edits the title (`assets.local/cocoa-events-before.log`). On the r16406 native-command-fix build, both routes consume editing/navigation/F1-F12 keys before native processing, and all 95 printable ASCII characters reach the save field exactly once. Evidence is in `assets.local/regression-tests-native-command-verified/cocoa-events.log`.
 
 The full regression runner passes: 13 collection checks, the existing keyboard checks, both native responder checks, and all 1,008 TSK2/TPR3 save/resume component comparisons. Audible confirmation still requires the player's manual check.
 
-The one-hour tutorial soak was repeated on both the previous Dock-icon build and this final build. Each ran 36,000 additional ticks to tick 72,458, made all 60 consecutive minute autosaves, and retained five checkpoints. All five rotated autosaves loaded and resumed, and repeated named saves plus overwrite preserved script/checkpoint bytes and entity counts. Final evidence is in `assets.local/autosave-native-command-fix.log` and `assets.local/autosave-native-command-fix-results.json`; the earlier run is in `assets.local/autosave-latest-results.json`. All 39 player save files remained unchanged. The final installed app's six files match the package, and its signature verifies.
+The one-hour tutorial soak was repeated on both the previous Dock-icon build and the r16406 native-command-fix build. Each ran 36,000 additional ticks to tick 72,458, made all 60 consecutive minute autosaves, and retained five checkpoints. All five rotated autosaves loaded and resumed, and repeated named saves plus overwrite preserved script/checkpoint bytes and entity counts. Final evidence is in `assets.local/autosave-native-command-fix.log` and `assets.local/autosave-native-command-fix-results.json`; the earlier run is in `assets.local/autosave-latest-results.json`. All 39 player save files remained unchanged. The final installed app's six files match the package, and its signature verifies.
 
 ## Interactive checks
 

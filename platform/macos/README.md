@@ -60,6 +60,12 @@ The app bundles its arm64 BASS library and uses system frameworks for Cocoa, Ope
 
 After installing the data, move `KaM Remake.app` to `~/Applications` and launch it normally. Select **Single Player → Campaigns** for the retail missions. Use the green window button for fullscreen and Command-Q to quit. Save names accept ordinary keyboard entry; in-game editing shortcuts retain the game's Control-key bindings.
 
+## Existing native saves
+
+The r16421 build accepts saves made by the original native r16406 MVP without enabling the unsupported-save debug option. Existing games retain their r16406 save, replay and checkpoint headers and original animal-movement timing. This keeps their recorded history deterministic and retains the original native save layout. Newly started games use r16421 and the upstream fix for animals blocking diagonal movement. The application version still reports r16421 when an older game is loaded.
+
+Compatibility is restricted to these two audited native revisions. Other revisions and Windows saves are not covered. This is not a general save-format bypass, and future upstream updates must recheck both serialization and simulation compatibility.
+
 ## Verification
 
 Build probes after the main game build:
@@ -91,7 +97,7 @@ python3 platform/macos/test-campaigns.py --data-dir assets.local/runtime-data \
 For the save/resume, collection-boundary and keyboard regressions, build these additional probes after the game and stage disposable data:
 
 ```sh
-for probe in Trajectory Collection Keyboard CocoaEvent; do
+for probe in Trajectory Collection Keyboard CocoaEvent Compatibility; do
   KAM_PASCAL_ENTRY="platform/macos/probes/KM_Mac${probe}Probe.lpr" \
     platform/macos/build.sh
 done
@@ -104,11 +110,34 @@ python3 platform/macos/test-regressions.py \
   --output assets.local/regression-results
 ```
 
-Use a fresh output directory for each run. The runner requires disposable data inside this checkout's `assets.local` directory and writes logs plus `results.json`. Use `--only trajectory`, `--only collections` or `--only keyboard` to select a suite.
+Use a fresh output directory for each run. The runner requires disposable data inside this checkout's `assets.local` directory and writes logs plus `results.json`. Use `--only trajectory`, `--only collections`, `--only keyboard` or `--only upstream` to select a suite.
 
 - Save/resume: TSK2 and TPR3 each run continuously to tick 6,000, then repeat with a save at tick 1,500 and resume in a fresh process. Both runs receive the same road, recruitment and formation commands where applicable. The suite compares 504 binary snapshots per mission, covering RNG/IDs, terrain, all players' resources/units/jobs/orders/AI, pathfinding, projectiles, script state, scripted sounds and custom resources. UI timing and save headers are excluded.
 - Collections: actual pending AI equipment orders and scripted sound-removal requests are saved and reloaded at counts 0, 1, 2 and 8. References and remaining acknowledgements must survive and complete. Live-game checkpoint scheduling is checked before, at and after limits 0, 1, 2, 30 and 60; large collections are prefilled just below the limit before crossing real scheduled boundaries.
 - Keyboard: callback checks cover editing/navigation keys, all 95 printable ASCII characters, F1-F12, shortcut combinations and repeated keys. A second probe dispatches events through the actual Cocoa application with both the window's text-input responder and the OpenGL view focused. Test-only method observers verify that editing/navigation/function keys are consumed before native command processing; printable characters must still arrive exactly once. Native controls retain their input, and focus changes must release held camera keys. Modifier semantics are also checked through the form because synthetic events do not replace macOS's current hardware modifier state. A listener should still confirm that no warning bell is audible during ordinary play.
+
+- Upstream integration: exercises replacement of the settings XML before updating hotkeys, a soldier walking past a diagonally pacing animal, replaying a game with no AI, and rejection of unknown revisions or mismatched save/replay companions.
+
+To test original native saves, copy their complete folders (including `.bas`, `.rpl` and any `.spt` files) into `Saves/` in disposable staged data. The compatibility runner checks normal Load-menu eligibility, resumed simulation, repeated serialization and checkpoint preservation. It can also replay an original save and its continued copy from their base state and restore an original checkpoint:
+
+```sh
+python3 platform/macos/test-compatibility.py \
+  --data-dir assets.local/legacy-data --output assets.local/legacy-results \
+  --saves 'Town Tutorial2' 'Town Tutorial4' \
+  --replay 'Town Tutorial4' --replay-tick 36458
+```
+
+The save names and replay tick above refer to local test fixtures; substitute your own originals. No player saves are distributed in the repository.
+
+If a previous r16406 trajectory run and its original save fixtures are available, compare the upgraded executable against those recorded component snapshots:
+
+```sh
+python3 platform/macos/test-regressions.py \
+  --data-dir assets.local/legacy-data --output assets.local/legacy-trajectories \
+  --only trajectory --legacy-baseline assets.local/previous-r16406-results
+```
+
+This mode only resumes the existing fixtures; it does not replace them with newly generated r16421 saves. The default cut/end ticks and missions must match the earlier run.
 
 Other probes cover Cocoa/OpenGL drawing and pixel readback, BASS/OpenAL playback, PascalScript's ARM64 host-call ABI, and XML/Base64/PNG/file operations. The data probe also exercises replay checkpoint serialization with zero, one, two and four checkpoints. Their command-line arguments are documented in each probe's usage error. Audio playback progress proves the backend is running; it does not substitute for a listener checking the selected output device.
 

@@ -21,11 +21,16 @@ type
 
 
 implementation
+uses
+  SysUtils;
 
 
 { TKMSettingsXML }
 constructor TKMSettingsXML.Create;
 begin
+  //todo -cComplicated: Settings handling needs to be refactored to avoid such non-standard Create/Destroy patterns
+  // Whole thing could be simplified if lifecycle is sorted out
+
   fXML := TKMXmlDocument.Create;
 
   // Prefer to store XML settings in the shared folder
@@ -37,7 +42,7 @@ destructor TKMSettingsXML.Destroy;
 begin
   inherited;
 
-  fXML.Free;
+  FreeAndNil(fXML);
 end;
 
 
@@ -59,4 +64,3 @@ end;
 
 
 end.
-

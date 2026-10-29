@@ -2068,6 +2068,7 @@ begin
   // Save to HeaderStream at first
   // ----------------------------------------------------------------
   try
+    gameInfo.Version := fParams.SaveVersion;
     gameInfo.Title := fParams.Name;
     gameInfo.MapFullCRC := fParams.MapFullCRC;
     gameInfo.MapSimpleCRC := fParams.MapSimpleCRC;
@@ -2509,6 +2510,11 @@ begin
     gameInfo := TKMGameInfo.Create;
     try
       gameInfo.Load(headerStream);
+      if (gameInfo.ParseError.ErrorType <> gipetNone)
+      and not (DBG_ALLOW_LOAD_UNSUP_VERSION_SAVE and (gameInfo.ParseError.ErrorType = gipetUnsupportedVersion)) then
+        raise EReadError.Create(gameInfo.ParseError.ErrorString);
+      if IsLegacyMacSaveVersion(gameInfo.Version) then
+        fParams.SaveVersion := gameInfo.Version;
       fParams.Name := gameInfo.Title;
       fParams.MapFullCRC := gameInfo.MapFullCRC;
       fParams.MapSimpleCRC := gameInfo.MapSimpleCRC;
@@ -3094,16 +3100,15 @@ begin
         gNetworking.LastProcessedTick := fParams.Tick;
 
       // Tell the master server about our game on the specific tick (host only)
-      if fParams.IsMultiPlayerOrSpec and gNetworking.IsHost
-        and ((fParams.IsNormalMission and (fParams.Tick = ANNOUNCE_BUILD_MAP))
-        or (fParams.IsTactic and (fParams.Tick = ANNOUNCE_BATTLE_MAP))) then
-      gNetworking.ServerPoller.AnnounceGame(fParams.Name, fParams.MapFullCRC, gNetworking.Room.GetConnectedCount);
+      if fParams.IsMultiPlayerOrSpec
+      and gNetworking.IsHost
+      and ((fParams.IsNormalMission and (fParams.Tick = ANNOUNCE_BUILD_MAP)) or (fParams.IsTactic and (fParams.Tick = ANNOUNCE_BATTLE_MAP))) then
+        gNetworking.ServerPoller.AnnounceGame(fParams.Name, fParams.MapFullCRC, gNetworking.Room.GetConnectedCount);
 
       fScripting.UpdateState;
       gTerrain.UpdateState;
 
-      if gHands.CanHaveAI() then
-        gAIFields.UpdateState(fParams.Tick);
+      gAIFields.UpdateState(fParams.Tick);
 
       gHands.UpdateState(fParams.Tick); // Quite slow
 

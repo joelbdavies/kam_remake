@@ -2,8 +2,8 @@ unit KM_AIFields;
 {$I KaM_Remake.inc}
 interface
 uses
-  KM_NavMesh, KM_AIInfluences, KM_Eye, KM_Supervisor,
-  KM_CommonClasses, KM_Points, KM_GameTypes;
+  KM_CommonClasses, KM_Points, KM_GameTypes,
+  KM_NavMesh, KM_AIInfluences, KM_Eye, KM_Supervisor;
 
 
 type
@@ -43,10 +43,8 @@ implementation
 uses
   SysUtils,
   KM_Defaults,
+  KM_HandsCollection,
   KM_DevPerfLog, KM_DevPerfLogTypes;
-
-const
-  AIFIELDS_MARKER = 'AIFields';
 
 
 { TKMAIFields }
@@ -67,6 +65,7 @@ begin
   FreeAndNil(fInfluences);
   FreeAndNil(fEye);
   FreeAndNil(fSupervisor);
+
   inherited;
 end;
 
@@ -90,7 +89,7 @@ end;
 
 procedure TKMAIFields.Save(SaveStream: TKMemoryStream);
 begin
-  SaveStream.PlaceMarker(AIFIELDS_MARKER);
+  SaveStream.PlaceMarker('AIFields');
 
   SaveStream.Write(fCanHaveAAI);
   fNavMesh.Save(SaveStream);
@@ -106,7 +105,7 @@ end;
 
 procedure TKMAIFields.Load(LoadStream: TKMemoryStream);
 begin
-  LoadStream.CheckMarker(AIFIELDS_MARKER);
+  LoadStream.CheckMarker('AIFields');
 
   LoadStream.Read(fCanHaveAAI);
   fNavMesh.Load(LoadStream);
@@ -122,6 +121,9 @@ end;
 
 procedure TKMAIFields.UpdateState(aTick: Cardinal);
 begin
+  // Nothing was initialized (nor saved / loaded) if no hand can be AI
+  if not gHands.CanHaveAI then Exit;
+
   {$IFDEF DBG_PERFLOG}
   gPerfLogs.SectionEnter(psAIFields);
   {$ENDIF}

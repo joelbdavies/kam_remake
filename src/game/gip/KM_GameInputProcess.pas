@@ -376,6 +376,7 @@ type
   private
     fCount: Integer;
     fReplayState: TKMGIPReplayState;
+    fSaveVersion: AnsiString;
     fPlannedCommands: TList<TKMGameInputCommand>; //Commands that were made before game was started (f.e. gicPlayerTypeChange, gicGameSpeed), we plan them for the next tick
   protected
     fStoredCommands: TKMStoredGicPackedList;
@@ -693,6 +694,8 @@ begin
   fCount := 0;
   fCursor := 1;
   fReplayState := aReplayState;
+  fSaveVersion := GAME_REVISION;
+  if gGameParams <> nil then fSaveVersion := gGameParams.SaveVersion;
 
   fPlannedCommands := TList<TKMGameInputCommand>.Create;
   fGic2StoredConverter := TKMGic2StoredConverter.Create;
@@ -1420,7 +1423,7 @@ procedure TKMGameInputProcess.SaveToStream(SaveStream: TKMemoryStream);
 var
   I, K: Integer;
 begin
-  SaveStream.WriteA(GAME_REVISION);
+  SaveStream.WriteA(fSaveVersion);
   SaveStream.Write(fCount);
 
   SaveExtra(SaveStream);
@@ -1487,7 +1490,12 @@ var
 begin
   LoadStream.ReadA(fileVersion);
   //We could allow to load unsupported version files
-  Assert(DBG_ALLOW_LOAD_UNSUP_VERSION_SAVE or (fileVersion = GAME_REVISION), 'Old or unexpected replay file. ' + UnicodeString(GAME_REVISION) + ' is required.');
+  if not DBG_ALLOW_LOAD_UNSUP_VERSION_SAVE and not IsSaveVersionSupported(fileVersion) then
+    raise EReadError.Create('Unsupported replay version: ' + UnicodeString(fileVersion));
+  if not DBG_ALLOW_LOAD_UNSUP_VERSION_SAVE and (gGame <> nil)
+  and (gGame.GameInputProcess = Self) and (fileVersion <> gGameParams.SaveVersion) then
+    raise EReadError.Create('Save and replay revisions do not match');
+  if IsSaveVersionSupported(fileVersion) then fSaveVersion := fileVersion;
 
   LoadStream.Read(fCount);
   SetLength(fQueue, fCount + 1);

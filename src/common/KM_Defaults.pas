@@ -1094,9 +1094,30 @@ const
 var
   ExeDir: UnicodeString;
 
+function IsLegacyMacSaveVersion(const aVersion: AnsiString): Boolean;
+function IsSaveVersionSupported(const aVersion: AnsiString): Boolean;
+
 implementation
 uses
   SysUtils;
+
+// Only the audited native MVP layout is compatible with this upstream revision.
+// Revisit this allowlist when the upstream save layout or simulation changes.
+function IsLegacyMacSaveVersion(const aVersion: AnsiString): Boolean;
+begin
+  {$IF DEFINED(DARWIN) AND DEFINED(CPUAARCH64)}
+  Result := (GAME_REVISION_NUM = 16421) and (aVersion = 'r16406');
+  {$ELSE}
+  Result := False;
+  {$ENDIF}
+end;
+
+
+function IsSaveVersionSupported(const aVersion: AnsiString): Boolean;
+begin
+  Result := (aVersion = GAME_REVISION) or IsLegacyMacSaveVersion(aVersion);
+end;
+
 
 initialization
 begin

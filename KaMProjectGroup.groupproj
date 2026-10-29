@@ -45,9 +45,6 @@
         <Projects Include="Utils\ScriptValidator\ScriptValidator.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="Utils\Server Poller\ServerPoller.dproj">
-            <Dependencies/>
-        </Projects>
         <Projects Include="Utils\ScriptParser (from kp-wiki)\ScriptingParser.dproj">
             <Dependencies/>
         </Projects>
@@ -209,15 +206,6 @@
     <Target Name="ScriptValidator:Make">
         <MSBuild Projects="Utils\ScriptValidator\ScriptValidator.dproj" Targets="Make"/>
     </Target>
-    <Target Name="ServerPoller">
-        <MSBuild Projects="Utils\Server Poller\ServerPoller.dproj"/>
-    </Target>
-    <Target Name="ServerPoller:Clean">
-        <MSBuild Projects="Utils\Server Poller\ServerPoller.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="ServerPoller:Make">
-        <MSBuild Projects="Utils\Server Poller\ServerPoller.dproj" Targets="Make"/>
-    </Target>
     <Target Name="ScriptingParser">
         <MSBuild Projects="Utils\ScriptParser (from kp-wiki)\ScriptingParser.dproj"/>
     </Target>
@@ -300,13 +288,13 @@
         <MSBuild Projects="Utils\Testing_GameTests\Testing_GameTests.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="KaM_Remake;KaM_Remake_no_ext;Builder;Batcher;CampaignBuilder;FontXCollator;FontXEditor;FontXGenerator;KaM_DedicatedServer;KaM_DedicatedServerGUI;Runner;RXXEditor;RXXPacker;ScriptValidator;ServerPoller;ScriptingParser;TranslationManager;TileEditor;TilesetResampler;ParallelRunner;UnitTests;AnimInterp;MapUtil;Testing_GameTests"/>
+        <CallTarget Targets="KaM_Remake;KaM_Remake_no_ext;Builder;Batcher;CampaignBuilder;FontXCollator;FontXEditor;FontXGenerator;KaM_DedicatedServer;KaM_DedicatedServerGUI;Runner;RXXEditor;RXXPacker;ScriptValidator;ScriptingParser;TranslationManager;TileEditor;TilesetResampler;ParallelRunner;UnitTests;AnimInterp;MapUtil;Testing_GameTests"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="KaM_Remake:Clean;KaM_Remake_no_ext:Clean;Builder:Clean;Batcher:Clean;CampaignBuilder:Clean;FontXCollator:Clean;FontXEditor:Clean;FontXGenerator:Clean;KaM_DedicatedServer:Clean;KaM_DedicatedServerGUI:Clean;Runner:Clean;RXXEditor:Clean;RXXPacker:Clean;ScriptValidator:Clean;ServerPoller:Clean;ScriptingParser:Clean;TranslationManager:Clean;TileEditor:Clean;TilesetResampler:Clean;ParallelRunner:Clean;UnitTests:Clean;AnimInterp:Clean;MapUtil:Clean;Testing_GameTests:Clean"/>
+        <CallTarget Targets="KaM_Remake:Clean;KaM_Remake_no_ext:Clean;Builder:Clean;Batcher:Clean;CampaignBuilder:Clean;FontXCollator:Clean;FontXEditor:Clean;FontXGenerator:Clean;KaM_DedicatedServer:Clean;KaM_DedicatedServerGUI:Clean;Runner:Clean;RXXEditor:Clean;RXXPacker:Clean;ScriptValidator:Clean;ScriptingParser:Clean;TranslationManager:Clean;TileEditor:Clean;TilesetResampler:Clean;ParallelRunner:Clean;UnitTests:Clean;AnimInterp:Clean;MapUtil:Clean;Testing_GameTests:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="KaM_Remake:Make;KaM_Remake_no_ext:Make;Builder:Make;Batcher:Make;CampaignBuilder:Make;FontXCollator:Make;FontXEditor:Make;FontXGenerator:Make;KaM_DedicatedServer:Make;KaM_DedicatedServerGUI:Make;Runner:Make;RXXEditor:Make;RXXPacker:Make;ScriptValidator:Make;ServerPoller:Make;ScriptingParser:Make;TranslationManager:Make;TileEditor:Make;TilesetResampler:Make;ParallelRunner:Make;UnitTests:Make;AnimInterp:Make;MapUtil:Make;Testing_GameTests:Make"/>
+        <CallTarget Targets="KaM_Remake:Make;KaM_Remake_no_ext:Make;Builder:Make;Batcher:Make;CampaignBuilder:Make;FontXCollator:Make;FontXEditor:Make;FontXGenerator:Make;KaM_DedicatedServer:Make;KaM_DedicatedServerGUI:Make;Runner:Make;RXXEditor:Make;RXXPacker:Make;ScriptValidator:Make;ScriptingParser:Make;TranslationManager:Make;TileEditor:Make;TilesetResampler:Make;ParallelRunner:Make;UnitTests:Make;AnimInterp:Make;MapUtil:Make;Testing_GameTests:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

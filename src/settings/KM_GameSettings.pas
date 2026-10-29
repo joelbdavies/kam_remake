@@ -265,7 +265,7 @@ var
 
 implementation
 uses
-  SysUtils, INIfiles, Math,
+  SysUtils, Math,
   KM_TerrainTypes;
 
 

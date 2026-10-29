@@ -25,9 +25,15 @@ for kam_size in 16 32 128 256 512; do
 done
 iconutil --convert icns "$kam_iconset" --output "$kam_app/Contents/Resources/KaMRemake.icns"
 
-python3 - "$kam_app/Contents/Info.plist" <<'PY'
+python3 - "$kam_app/Contents/Info.plist" "$kam_root/KM_Revision.inc" <<'PY'
 import plistlib
+import re
 import sys
+from pathlib import Path
+
+revision = re.fullmatch(r"GAME_REVISION_NUM=(\d+)", Path(sys.argv[2]).read_text().strip())
+if revision is None:
+    raise SystemExit("Cannot read the game revision for the app bundle")
 
 with open(sys.argv[1], 'wb') as output:
     plistlib.dump({
@@ -37,7 +43,7 @@ with open(sys.argv[1], 'wb') as output:
         'CFBundleExecutable': 'KaM_Remake',
         'CFBundleIconFile': 'KaMRemake.icns',
         'CFBundlePackageType': 'APPL',
-        'CFBundleVersion': '16406',
+        'CFBundleVersion': revision.group(1),
         'CFBundleShortVersionString': '0.1',
         'LSMinimumSystemVersion': '15.0',
         'NSHighResolutionCapable': True,
