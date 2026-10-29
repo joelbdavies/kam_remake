@@ -2,12 +2,12 @@ unit KM_WorkerThread;
 {$I KaM_Remake.inc}
 interface
 uses
-  Classes, SysUtils, Generics.Collections;
+  Classes, SysUtils, Generics.Collections, KM_CommonTypes;
 
 type
   // FPC 3.2.2 still has problems with TProc and TProc<>
   // Hence the simplest solution is to excelude this utility unit from DedicatedServer projects
-  {$IFDEF WDC}
+  {$IFDEF KM_FUNCTION_REFERENCES}
   TKMWorkerThreadTask = class
   public
     TaskName: string;
@@ -19,7 +19,7 @@ type
   TKMWorkerThread = class(TThread)
   // FPC 3.2.2 still has problems with TProc and TProc<>
   // Hence the simplest solution is to excelude this utility unit from DedicatedServer projects
-  {$IFDEF WDC}
+  {$IFDEF KM_FUNCTION_REFERENCES}
   private
     fWorkerThreadName: string;
     fWorkCompleted: Boolean;
@@ -49,7 +49,7 @@ type
   // Holder of WorkerThread
   // It should manage its state and recreate an instance if needed
   TKMWorkerThreadHolder = class
-  {$IFDEF WDC}
+  {$IFDEF KM_FUNCTION_REFERENCES}
   private
     fWorkerThreadName: string;
     fWorkerThread: TKMWorkerThread;
@@ -65,10 +65,11 @@ type
 
 implementation
 uses
+  {$IFDEF FPC}{$IFDEF KM_FUNCTION_REFERENCES}fpmonitor,{$ENDIF}{$ENDIF}
   KM_Log;
 
 
-{$IFDEF WDC}
+{$IFDEF KM_FUNCTION_REFERENCES}
 { TKMWorkerThread }
 constructor TKMWorkerThread.Create(const aThreadName: string = '');
 begin

@@ -28,7 +28,11 @@ type
 
 implementation
 //{$IFDEF WDC}
+  {$IFDEF FPC}
+  {$R *.lfm}
+  {$ELSE}
   {$R *.dfm}
+  {$ENDIF}
 //{$ENDIF}
 
 
@@ -59,9 +63,6 @@ begin
 end;
 
 
-{$IFDEF FPC}
-initialization
-{$I KM_FormLoading.lrs}
-{$ENDIF}
+
 
 end.

@@ -4,6 +4,7 @@ interface
 uses
   SysUtils, StrUtils, Classes, Math,
   ComCtrls, Controls, ExtCtrls, StdCtrls,
+  {$IFDEF FPC} KM_LCLControls, {$ENDIF}
   Forms, Spin
   {$IFDEF Unix} , LCLIntf, LCLType {$ENDIF}
   ;
@@ -113,7 +114,7 @@ var
   I: Integer;
   newXML: TKMXMLDocument;
   cp: TCategoryPanel;
-  cpSurface: TCategoryPanelSurface;
+  {$IFDEF WDC}cpSurface: TCategoryPanelSurface;{$ENDIF}
   cpName: string;
   nRoot, nDebugForm, nSection: TKMXmlNode;
 begin
@@ -152,11 +153,15 @@ begin
         nSection := nDebugForm.FindNode(cpName);
         cp.Collapsed := nSection.Attributes['Collapsed'].AsBoolean(True);
 
+        {$IFDEF WDC}
         if (cp.ControlCount > 0) and (cp.Controls[0] is TCategoryPanelSurface) then
         begin
           cpSurface := TCategoryPanelSurface(cp.Controls[0]);
           LoadSubPanel(cpSurface, nSection);
         end;
+        {$ELSE}
+        LoadSubPanel(cp, nSection);
+        {$ENDIF}
       end;
     end;
 
@@ -215,7 +220,7 @@ var
   I: Integer;
   newXML: TKMXMLDocument;
   cp: TCategoryPanel;
-  cpSurface: TCategoryPanelSurface;
+  {$IFDEF WDC}cpSurface: TCategoryPanelSurface;{$ENDIF}
   nRoot, nDebugForm, nSection: TKMXmlNode;
 begin
   if Self = nil then Exit;
@@ -240,11 +245,15 @@ begin
 
     nSection.Attributes['Collapsed'] := cp.Collapsed;
 
+    {$IFDEF WDC}
     if (cp.ControlCount > 0) and (cp.Controls[0] is TCategoryPanelSurface) then
     begin
       cpSurface := TCategoryPanelSurface(cp.Controls[0]);
       SaveSubPanel(cpSurface, nSection);
     end;
+    {$ELSE}
+    SaveSubPanel(cp, nSection);
+    {$ENDIF}
   end;
 
   newXML.SaveToFile(fSettingsPath);

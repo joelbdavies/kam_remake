@@ -468,6 +468,7 @@ uses
   SysUtils
   {$IFDEF DGL_WIN}, Windows{$ENDIF}
   {$IFDEF DGL_LINUX}, X, XLib, XUtil, types {$ENDIF}
+  {$IFDEF DARWIN}, Types, Dynlibs {$ENDIF}
   ;
 
 type
@@ -12895,8 +12896,8 @@ const
   GLU_LIBNAME = 'GLU32.dll';
 {$ELSE}
   {$IFDEF darwin}
-    OPENGL_LIBNAME = 'libGL.dylib';
-    GLU_LIBNAME = 'libGLU.dylib';
+    OPENGL_LIBNAME = '/System/Library/Frameworks/OpenGL.framework/OpenGL';
+    GLU_LIBNAME = OPENGL_LIBNAME;
   {$ELSE}
     OPENGL_LIBNAME = 'libGL.so.1';
     GLU_LIBNAME = 'libGLU.so.1';
@@ -13168,6 +13169,9 @@ function dlsym(Lib: Pointer; Name: PAnsiChar): Pointer; cdecl; external LibraryL
 
 function dglLoadLibrary(Name: PChar): Pointer;
 begin
+  {$IFDEF DARWIN}
+  Result := Pointer(Dynlibs.LoadLibrary(Name));
+  {$ENDIF}
   {$IFDEF DGL_WIN}
   Result := Pointer(LoadLibrary(Name));
   {$ENDIF}
@@ -13190,6 +13194,9 @@ begin
     {$IFDEF DGL_LINUX}
     Result := dlclose(LibHandle) = 0;
     {$ENDIF}
+    {$IFDEF DARWIN}
+    Result := Dynlibs.UnloadLibrary(TLibHandle(LibHandle));
+    {$ENDIF}
 end;
 
 
@@ -13202,6 +13209,10 @@ begin
   {$IFNDEF DGL_LINUX}
   Result :=  nil;
   {$ENDIF}
+  {$ENDIF}
+
+  {$IFDEF DARWIN}
+    Result := Dynlibs.GetProcedureAddress(TLibHandle(LibHandle), ProcName);
   {$ENDIF}
 
   {$IFDEF DGL_WIN}

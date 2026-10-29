@@ -13,6 +13,7 @@ implementation
 uses
   SysUtils, KM_FileIO
 {$IFDEF WDC}, Dialogs, KM_Log{$ENDIF}
+{$IFDEF FPC}, FPImage, FPWritePNG, FPWriteJPEG, FPWriteBMP{$ENDIF}
   ;
 
 
@@ -24,7 +25,46 @@ var
   jpg: TJpegImage;
   png: TPngImage;
 {$ENDIF}
+{$IFDEF FPC}
+var
+  image: TFPMemoryImage;
+  writer: TFPCustomImageWriter;
+  color: TFPColor;
+  pixel: Cardinal;
+  X, Y: Integer;
+{$ENDIF}
 begin
+{$IFDEF FPC}
+  if (aWidth <= 0) or (aHeight <= 0) or (Length(aPixelData) <> aWidth * aHeight) then
+    raise EArgumentException.Create('Invalid screenshot pixel buffer');
+  ForceDirectories(ExtractFilePath(aFilePath));
+  image := TFPMemoryImage.Create(aWidth, aHeight);
+  writer := nil;
+  try
+    for Y := 0 to aHeight - 1 do
+      for X := 0 to aWidth - 1 do
+      begin
+        pixel := aPixelData[Y * aWidth + X]; // OpenGL BGRA, already flipped vertically
+        color.Red := ((pixel shr 16) and $FF) * 257;
+        color.Green := ((pixel shr 8) and $FF) * 257;
+        color.Blue := (pixel and $FF) * 257;
+        color.Alpha := $FFFF;
+        image.Colors[X, Y] := color;
+      end;
+    case aImageType of
+      itPng: writer := TFPWriterPNG.Create;
+      itJpeg: begin
+                writer := TFPWriterJPEG.Create;
+                TFPWriterJPEG(writer).CompressionQuality := 90;
+              end;
+      itBmp: writer := TFPWriterBMP.Create;
+    end;
+    image.SaveToFile(ChangeFileExt(aFilePath, IMAGE_TYPE_EXT[aImageType]), writer);
+  finally
+    writer.Free;
+    image.Free;
+  end;
+{$ENDIF}
 {$IFDEF WDC}
   ForceDirectories(ExtractFilePath(aFilePath));
   filePath := ChangeFileExt(aFilePath, IMAGE_TYPE_EXT[aImageType]);

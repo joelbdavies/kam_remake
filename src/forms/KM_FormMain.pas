@@ -3,6 +3,7 @@ unit KM_FormMain;
 interface
 uses
   Classes,
+  {$IFDEF FPC} KM_LCLControls, {$ENDIF}
   ComCtrls, Controls, Buttons, Dialogs, ExtCtrls, Forms, Graphics, Menus, StdCtrls,
   KM_RenderControl, KM_CommonTypes,
   KM_WindowParams, KM_SettingsDev, KM_GameTypes,
@@ -108,7 +109,6 @@ type
     chkShowSoil: TCheckBox;
     chkShowFlatArea: TCheckBox;
     chkShowEyeRoutes: TCheckBox;
-    {$IFDEF WDC}
     mainGroup: TCategoryPanelGroup;
     cpGameControls: TCategoryPanel;
     cpDebugRender: TCategoryPanel;
@@ -185,15 +185,6 @@ type
     tbWaterLight: TTrackBar;
     lblWaterLight: TLabel;
     chkSkipRenderText: TCheckBox;
-    {$ENDIF}
-    {$IFDEF FPC}
-    mainGroup: TGroupBox;
-    GroupBox2: TGroupBox;
-    GroupBox3: TGroupBox;
-    GroupBox4: TGroupBox;
-    GroupBox5: TGroupBox;
-    GroupBoxLogs: TGroupBox;
-    {$ENDIF}
     N5: TMenuItem;
     LoadSavThenRpl: TMenuItem;
     N7: TMenuItem;
@@ -357,6 +348,10 @@ type
     {$IFDEF MSWindows}
     fMenuItemHint: TKMVclMenuItemHint; // Custom hint over menu item
     {$ENDIF}
+    {$IFDEF FPC}
+    fPressedKeys: set of Byte;
+    fPressedMouseButtons: TShiftState;
+    {$ENDIF}
     fDevSettings: TKMDevSettings;
     fStartVideoPlayed: Boolean;
     fUpdating: Boolean;
@@ -364,6 +359,11 @@ type
     fOnControlsUpdated: TObjectIntegerEvent;
 
     fResExporter: TKMResExporter;
+
+    {$IFDEF FPC}
+    procedure NativeDeactivate(Sender: TObject);
+    function GameHasKeyboardFocus: Boolean;
+    {$ENDIF}
 
     procedure FormKeyDownProc(aKey: Word; aShift: TShiftState; aIsFirst: Boolean);
     procedure FormKeyUpProc(aKey: Word; aShift: TShiftState);
@@ -379,8 +379,10 @@ type
 
     procedure FindObjByUID(aUID: Integer);
     function AllowFindObjByUID: Boolean;
-    {$IFDEF MSWindows}
     function GetWindowParams: TKMWindowParamsRecord;
+    procedure ShowInCustomWindow;
+    procedure ShowInDefaultWindow;
+    {$IFDEF MSWindows}
     procedure WMSysCommand(var Msg: TWMSysCommand); message WM_SYSCOMMAND;
     procedure WMExitSizeMove(var Msg: TMessage) ; message WM_EXITSIZEMOVE;
     procedure WMAppCommand(var Msg: TMessage); message WM_APPCOMMAND;
@@ -388,8 +390,6 @@ type
     procedure WMMenuSelect(var Msg: TWMMenuSelect); message WM_MENUSELECT;
     procedure DoMessage(var Msg: TMsg; var Handled: Boolean);
 
-    procedure ShowInCustomWindow;
-    procedure ShowInDefaultWindow;
   protected
     procedure WndProc(var Message: TMessage); override; //
     {$ENDIF}
@@ -451,9 +451,11 @@ uses
   KM_ResTypes,
   KM_GameAppSettings;
 
-//{$IFDEF WDC}
+{$IFDEF FPC}
+  {$R *.lfm}
+{$ELSE}
   {$R *.dfm}
-//{$ENDIF}
+{$ENDIF}
 
 
 procedure ExportDone(aResourceName: String);
@@ -465,7 +467,12 @@ end;
 //Remove VCL panel and use flicker-free TMyPanel instead
 procedure TFormMain.FormCreate(Sender: TObject);
 begin
+  {$IFDEF MSWindows}
   Application.OnMessage := DoMessage;
+  {$ENDIF}
+  {$IFDEF FPC}
+  OnDeactivate := NativeDeactivate;
+  {$ENDIF}
 
   fStartVideoPlayed := False;
   RenderArea := TKMRenderControl.Create(Self);
@@ -532,6 +539,9 @@ end;
 procedure TFormMain.FormShow(Sender: TObject);
 var
   bordersWidth, bordersHeight: Integer;
+  {$IFDEF DARWIN}
+  workArea: TRect;
+  {$ENDIF}
 begin
   //We do this in OnShow rather than OnCreate as the window borders aren't
   //counted properly in OnCreate
@@ -546,6 +556,18 @@ begin
   begin
     Left := gMainSettings.WindowParams.Left;
     Top := gMainSettings.WindowParams.Top;
+    {$IFDEF DARWIN}
+    // Display geometry can change between sessions, especially with remote displays.
+    // Keep the entire restored window within the nearest display's usable area.
+    if WindowState = wsNormal then
+    begin
+      workArea := Monitor.WorkareaRect;
+      Width := Min(Width, workArea.Right - workArea.Left);
+      Height := Min(Height, workArea.Bottom - workArea.Top);
+      Left := EnsureRange(Left, workArea.Left, Max(workArea.Left, workArea.Right - Width));
+      Top := EnsureRange(Top, workArea.Top, Max(workArea.Top, workArea.Bottom - Height));
+    end;
+    {$ENDIF}
     gLog.AddTime('Set window Left = %d, Top = %d', [Left, Top]);
   end;
 
@@ -628,15 +650,66 @@ end;
 
 procedure TFormMain.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
-//  Assert(KeyPreview, 'MainForm should receive all keys to pass them to fGame');
-//  FormKeyDownProc(Key, Shift, True);
+  {$IFDEF DARWIN}
+  if (ssMeta in Shift) and (Key = Ord('Q')) then
+  begin
+    Close;
+    Key := 0;
+    Exit;
+  end;
+  {$ENDIF}
+  {$IFDEF FPC}
+  if not GameHasKeyboardFocus then Exit;
+  if Key <= High(Byte) then
+  begin
+    FormKeyDownProc(Key, Shift, not (Key in fPressedKeys));
+    Include(fPressedKeys, Key);
+  end
+  else
+    FormKeyDownProc(Key, Shift, True);
+  {$ENDIF}
+  {$IFDEF DARWIN}
+  // Editing/navigation and shortcuts are complete on KeyDown. Consume them
+  // before Cocoa's text-input responder executes the same command and beeps.
+  // Printable keys must remain available for the later KeyPress event.
+  if (Key in [VK_BACK, VK_TAB, VK_CLEAR, VK_RETURN, VK_PAUSE, VK_ESCAPE,
+    VK_PRIOR, VK_NEXT, VK_END, VK_HOME, VK_LEFT, VK_UP, VK_RIGHT, VK_DOWN,
+    VK_SELECT, VK_PRINT, VK_EXECUTE, VK_SNAPSHOT, VK_INSERT, VK_DELETE, VK_HELP,
+    VK_F1..VK_F24]) or (ssCtrl in Shift) or (ssMeta in Shift) then
+    Key := 0;
+  {$ENDIF}
 end;
+
+
+{$IFDEF FPC}
+function TFormMain.GameHasKeyboardFocus: Boolean;
+begin
+  Result := (gGameApp <> nil) and ((ActiveControl = nil) or (ActiveControl = RenderArea));
+end;
+
+
+procedure TFormMain.NativeDeactivate(Sender: TObject);
+var
+  key: Byte;
+begin
+  for key in fPressedKeys do
+    FormKeyUpProc(key, []);
+  fPressedKeys := [];
+  fPressedMouseButtons := [];
+end;
+{$ENDIF}
 
 
 procedure TFormMain.FormKeyPress(Sender: TObject; var Key: Char);
 begin
   Assert(KeyPreview, 'MainForm should receive all keys to pass them to fGame');
+  {$IFDEF FPC}
+  if not GameHasKeyboardFocus then Exit;
+  {$ENDIF}
   if gGameApp <> nil then gGameApp.KeyPress(Key);
+  {$IFDEF DARWIN}
+  Key := #0; // Text has reached the game; do not pass it to the Cocoa responder.
+  {$ENDIF}
 end;
 
 
@@ -644,6 +717,16 @@ procedure TFormMain.FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState
 begin
   Assert(KeyPreview, 'MainForm should receive all keys to pass them to fGame');
 
+  {$IFDEF FPC}
+  // A native control owns new key presses, but still release keys the game
+  // received before focus changed so camera movement cannot become stuck.
+  if not GameHasKeyboardFocus then
+  begin
+    if Key > High(Byte) then Exit;
+    if not (Key in fPressedKeys) then Exit;
+  end;
+  if Key <= High(Byte) then Exclude(fPressedKeys, Key);
+  {$ENDIF}
   FormKeyUpProc(Key, Shift);
 end;
 
@@ -666,6 +749,19 @@ end;
 
 procedure TFormMain.RenderAreaMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
+  {$IFDEF FPC}
+  // A Cocoa/remote click can arrive without a preceding mouse-move event.
+  // Refresh the terrain hit test as well as the UI's control under the cursor.
+  if gGameApp <> nil then gGameApp.MouseMove(Shift, X, Y);
+  // Cocoa supplies modifiers separately from the button that triggered the event.
+  case Button of
+    mbLeft: Include(Shift, ssLeft);
+    mbRight: Include(Shift, ssRight);
+    mbMiddle: Include(Shift, ssMiddle);
+  end;
+  fPressedMouseButtons := fPressedMouseButtons + (Shift * [ssLeft, ssRight, ssMiddle]);
+  Shift := Shift + fPressedMouseButtons;
+  {$ENDIF}
   // Handle middle mouse button as Key
   if Button = mbMiddle then
     FormKeyDownProc(VK_MBUTTON, Shift, True)
@@ -676,12 +772,23 @@ end;
 
 procedure TFormMain.RenderAreaMouseMove(Sender: TObject; Shift: TShiftState; X,Y: Integer);
 begin
+  {$IFDEF FPC}
+  // LCL Cocoa reads global button state, which remote drag events need not update.
+  Shift := Shift + fPressedMouseButtons;
+  {$ENDIF}
   if gGameApp <> nil then gGameApp.MouseMove(Shift, X, Y);
 end;
 
 
 procedure TFormMain.RenderAreaMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 begin
+  {$IFDEF FPC}
+  case Button of
+    mbLeft: Exclude(fPressedMouseButtons, ssLeft);
+    mbRight: Exclude(fPressedMouseButtons, ssRight);
+    mbMiddle: Exclude(fPressedMouseButtons, ssMiddle);
+  end;
+  {$ENDIF}
   if gGameApp <> nil then
   begin
     //Somehow Shift state does not contain mouse buttons ssLeft/ssRight/ssMiddle
@@ -703,7 +810,9 @@ end;
 
 procedure TFormMain.RenderAreaMouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
 begin
-  gGameApp.MouseWheel(Shift, WheelDelta, MousePos.X, MousePos.Y, Handled);
+  if gGameApp = nil then Exit;
+  MousePos := RenderArea.ScreenToClient(MousePos);
+  gGameApp.MouseWheel(Shift, GetMouseWheelStepsCnt(WheelDelta), MousePos.X, MousePos.Y, Handled);
 end;
 
 
@@ -765,11 +874,15 @@ end;
 
 
 procedure TFormMain.mnExportRngChecksClick(Sender: TObject);
+{$IFDEF DBG_RNG_SPY}
+var
+  rngLogger: TKMRandomCheckLogger;
+{$ENDIF}
 begin
   {$IFDEF DBG_RNG_SPY}
   if RunOpenDialog(OpenDialog1, '', ExeDir, 'KaM Remake Random checks log (*.rng)|*.rng') then
   begin
-    var rngLogger := TKMRandomCheckLogger.Create;
+    rngLogger := TKMRandomCheckLogger.Create;
     rngLogger.LoadFromPathAndParseToDict(OpenDialog1.FileName);
     rngLogger.SaveAsText(OpenDialog1.FileName + '.log');
     rngLogger.Free;
@@ -779,10 +892,12 @@ end;
 
 
 procedure TFormMain.mnExportRPLClick(Sender: TObject);
+var
+  gip: TKMGameInputProcess;
 begin
   if RunOpenDialog(OpenDialog1, '', ExeDir, 'KaM Remake replay commands (*.rpl)|*.rpl') then
   begin
-    var gip := TKMGameInputProcess.Create(gipReplaying);
+    gip := TKMGameInputProcess.Create(gipReplaying);
     gip.LoadFromFile(OpenDialog1.FileName);
     gip.SaveToFileAsText(OpenDialog1.FileName + '.log');
     gip.Free;
@@ -1252,14 +1367,13 @@ procedure TFormMain.ResetControl(aCtrl: TControl);
 
   function SkipReset(aCtrl: TControl): Boolean;
   begin
-    Result := {$IFDEF WDC}
+    Result :=
                  (aCtrl = chkSnowHouses)
               or (aCtrl = chkLoadUnsupSaves)
               or (aCtrl = chkDebugScripting)
               or (aCtrl = tbWaterLight)
               or (aCtrl = seMaxImageSize);
-              {$ENDIF}
-              {$IFDEF FPC} False; {$ENDIF}
+
   end;
 
 begin
@@ -1343,26 +1457,8 @@ procedure TFormMain.ControlsReset;
 
   {$IFDEF FPC}
   procedure ResetGroup(aBox: TGroupBox);
-  var
-    I: Integer;
   begin
-    for I := 0 to aBox.ControlCount - 1 do
-    begin
-      if SkipReset(aBox.Controls[I]) then Continue; //Skip reset for some controls
-
-      if aBox.Controls[I] is TCheckBox then
-        TCheckBox(aBox.Controls[I]).Checked :=    (aBox.Controls[I] = chkBevel)
-                                               or (aBox.Controls[I] = chkLogNetConnection)
-      else
-      if aBox.Controls[I] is TTrackBar then
-        TTrackBar(aBox.Controls[I]).Position := 0
-      else
-      if aBox.Controls[I] is TRadioGroup then
-        TRadioGroup(aBox.Controls[I]).ItemIndex := 0
-      else
-      if (aBox.Controls[I] is TGroupBox) then
-        ResetGroup(TGroupBox(aBox.Controls[I]));
-    end;
+    ResetSubPanel(aBox);
   end;
   {$ENDIF}
 
@@ -1804,10 +1900,14 @@ end;
 procedure TFormMain.ShowFullScreen;
 begin
   Show; //Make sure the form is shown (e.g. on game creation), otherwise it won't wsMaximize
+  {$IFDEF DARWIN}
+  WindowState := wsFullScreen;
+  {$ELSE}
   BorderStyle  := bsSizeable; //if we don't set Form1 sizeable it won't maximize
   WindowState  := wsNormal;
   WindowState  := wsMaximized;
   BorderStyle  := bsNone;     //and now we can make it borderless again
+  {$ENDIF}
 
   //Make sure Panel is properly aligned
   RenderArea.Align := alClient;
@@ -1916,13 +2016,15 @@ end;
 
 // Return current window params
 function TFormMain.GetWindowParams: TKMWindowParamsRecord;
+{$IFDEF MSWindows}
   // FindTaskBar returns the Task Bar's position, and fills in
   // ARect with the current bounding rectangle.
   function FindTaskBar(var aRect: TRect): Integer;
+  var
+    AppData: TAppBarData;
   begin
     Result := -1;
     {$IFDEF MSWINDOWS}
-    var AppData: TAppBarData;
     // 'Shell_TrayWnd' is the name of the task bar's window
     AppData.hWnd := FindWindow('Shell_TrayWnd', nil);
     if AppData.hWnd <> 0 then
@@ -1985,6 +2087,23 @@ begin
                   end;
   end;
 end;
+{$ELSE}
+begin
+  Result.State := WindowState;
+  Result.Position := Position;
+  Result.Width := ClientWidth;
+  Result.Height := ClientHeight;
+  Result.Left := Left;
+  Result.Top := Top;
+  if WindowState in [wsMinimized, wsMaximized, wsFullScreen] then
+  begin
+    Result.Width := RestoredWidth - (Width - ClientWidth);
+    Result.Height := RestoredHeight - (Height - ClientHeight);
+    Result.Left := RestoredLeft;
+    Result.Top := RestoredTop;
+  end;
+end;
+{$ENDIF}
 
 
 {$IFDEF MSWindows}
@@ -2150,13 +2269,18 @@ begin
   // We use WM_MOUSEWHEEL message handler on Windows, since it prevents some bugs from happaning
   // F.e. on Win10 it was reported, that we got event 3 times on single turn of mouse wheel, if use default form event handler
 {$IFNDEF MSWINDOWS}
-  var handled := False;
+  Handled := False;
+  if gGameApp = nil then Exit;
   gGameApp.MouseWheel(Shift, GetMouseWheelStepsCnt(WheelDelta), RenderArea.ScreenToClient(MousePos).X, RenderArea.ScreenToClient(MousePos).Y, handled);
 {$ENDIF}
 end;
 
 
 function TFormMain.GetMouseWheelStepsCnt(aWheelData: Integer): Integer;
+{$IFNDEF MSWindows}
+const
+  WHEEL_DELTA = 120; // LCL normalizes wheel events to the same units as Windows.
+{$ENDIF}
 begin
   Result := aWheelData div WHEEL_DELTA;
 end;
@@ -2244,10 +2368,7 @@ begin
 end;
 
 
-{$IFDEF FPC}
-initialization
-{$I KM_FormMain.lrs}
-{$ENDIF}
+
 
 
 end.

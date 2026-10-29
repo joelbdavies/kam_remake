@@ -313,6 +313,7 @@ var
 
 implementation
 uses
+  KM_FPU,
   {$IFDEF PARALLEL_RUNNER}
     KM_AIParameters, // If you want to remove this, then please make sure that the Runner can be compiled with ParallelRunner Build Configuration
   {$ENDIF}
@@ -3042,7 +3043,7 @@ function TKMGame.PlayGameTick: Boolean;
     // Save game to memory (to be able to load it later)
     // Make savepoint only after everything is updated (UpdateState)
     if gGameSettings.SaveCheckpoints
-      and (fSavePoints.Count <= gGameSettings.SaveCheckpointsLimit) // Do not allow to spam saves, could cause OUT_OF_MEMORY error
+      and (fSavePoints.Count < gGameSettings.SaveCheckpointsLimit) // Do not allow to spam saves, could cause OUT_OF_MEMORY error
       and ((fParams.Tick = MAKE_SAVEPT_BEFORE_TICK - 1) or (fParams.Tick = 0)
         or ((fParams.Tick + SAVEPT_TICK_SHIFT) = (fOptions.Peacetime*60*10)) // At PT end. Make savepoint a bit earlier, to avoid save lag
         or (((fParams.Tick + SAVEPT_TICK_SHIFT) mod gGameSettings.SaveCheckpointsFreq) = 0)) then // Make savepoint a bit earlier, to avoid save lag
@@ -3237,7 +3238,7 @@ begin
   Result := False;
   // Some PCs seem to change 8087CW randomly between events like Timers and OnMouse*,
   // so we need to set it right before we do game logic processing
-  Set8087CW($133F);
+  ConfigureGameFPU;
 
   if fIsPaused or ReadyToStop then
     Exit;
@@ -3322,7 +3323,7 @@ begin
   Assert(fParams.IsReplay, 'Wrong game mode');
   Result := Math.Max(gGameSettings.ReplaySavepointFrequency,
                      // Do not save too often, that could cause OUT_OF_MEMORY error
-                     fGameInputProcess.GetLastTick div (REPLAY_SAVEPOINT_CNT_MAX - 2)); // - 2 for starting one and for PT
+                     Integer(fGameInputProcess.GetLastTick div (REPLAY_SAVEPOINT_CNT_MAX - 2))); // - 2 for starting one and for PT
   Result := Ceil(Result / 300)*300; // Ceil to every 30 sec
 end;
 

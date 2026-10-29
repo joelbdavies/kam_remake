@@ -5,7 +5,7 @@ uses
   {$IFDEF MSWINDOWS} Windows, {$ENDIF}
   KM_CommonClasses, KM_CommonTypes, KM_Points
   {$IFDEF Unix}
-  , Mouse
+  , Controls
   {$ENDIF}
   {$IFDEF FPC}
   {$IFDEF Unix}
@@ -81,6 +81,7 @@ type
 implementation
 uses
   Math, SysUtils,
+  {$IFDEF DARWIN} KM_Cursor, {$ENDIF}
   KromUtils, KM_InterfaceTypes,
   KM_Resource, KM_ResTypes,
   KM_RenderAux,
@@ -406,8 +407,14 @@ begin
     if not Windows.GetCursorPos(mousePos) then Exit;
   {$ENDIF}
   {$IFDEF Unix}
-    MousePos.X := GetMouseX;
-    MousePos.Y := GetMouseY;
+    // Use LCL rather than the console Mouse unit. Cocoa remote input can deliver
+    // window events without moving the global hardware cursor; scroll using the
+    // same event position as selection and orders in that case.
+    mousePos := Mouse.CursorPos;
+    {$IFDEF DARWIN}
+    if (gCursor.Pixel.X <> 0) or (gCursor.Pixel.Y <> 0) then
+      mousePos := gMain.ClientToScreen(Point(gCursor.Pixel.X, gCursor.Pixel.Y));
+    {$ENDIF}
   {$ENDIF}
   if not gMain.GetScreenBounds(screenBounds) then Exit;
 

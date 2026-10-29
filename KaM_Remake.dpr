@@ -10,6 +10,7 @@ uses
   madListModules,
   {$ENDIF}
   {$IFDEF UNIX} cthreads, {$ENDIF} //Required for thread support on Unix/Linux
+  {$IFDEF FPC} Interfaces, {$ENDIF}
   Forms,
   Dialogs,
   {$IFDEF WDC} 
@@ -17,22 +18,30 @@ uses
   {$ENDIF}
 
   {$IFDEF WDC} UITypes, {$ENDIF} // For MessageDlg invoked from this file
-  {$IFDEF FPC} Interfaces, {$ENDIF}
+  {$IFDEF FPC} KM_LCLControls in 'src\forms\KM_LCLControls.pas', {$ENDIF}
   KM_FormMain in 'src\forms\KM_FormMain.pas' {FormMain},
   KM_FormLogistics in 'src\forms\KM_FormLogistics.pas' {FormLogistics},
   KM_FormLoading in 'src\forms\KM_FormLoading.pas' {FormLoading},
 
-  KM_VclMenuHint in 'src\forms\KM_VclMenuHint.pas',
+  {$IFDEF MSWindows}
+  KM_VclMenuHint in 'src\forms\KM_VCLMenuHint.pas',
+  {$ENDIF}
   KM_VclHelpers in 'src\forms\KM_VclHelpers.pas',
 
+  {$IFDEF MSWINDOWS}
   iaWin.NameDelphiThreads in 'src\ext\iaWin.NameDelphiThreads.pas',
+  {$ENDIF}
   
+  {$IFDEF DARWIN}
+  uPSCompiler, uPSDebugger, uPSDisassembly, uPSPreProcessor, uPSRuntime, uPSUtils,
+  {$ELSE}
   uPSCompiler in 'src\ext\pascalscript_submodule\Source\uPSCompiler.pas',
   uPSDebugger in 'src\ext\pascalscript_submodule\Source\uPSDebugger.pas',
   uPSDisassembly in 'src\ext\pascalscript_submodule\Source\uPSDisassembly.pas',
   uPSPreProcessor in 'src\ext\pascalscript_submodule\Source\uPSPreProcessor.pas',
   uPSRuntime in 'src\ext\pascalscript_submodule\Source\uPSRuntime.pas',
   uPSUtils in 'src\ext\pascalscript_submodule\Source\uPSUtils.pas',
+  {$ENDIF}
 
   KM_AI in 'src\ai\KM_AI.pas',
   KM_AIArmyEvaluation in 'src\ai\KM_AIArmyEvaluation.pas',
@@ -259,6 +268,7 @@ uses
   
   KM_Audio in 'src\media\KM_Audio.pas',
   KM_MediaTypes in 'src\media\KM_MediaTypes.pas',
+  {$IFDEF DARWIN}KM_AudioDecode in 'src\media\KM_AudioDecode.pas',{$ENDIF}
   KM_Music in 'src\media\KM_Music.pas',
   KM_ScriptSound in 'src\media\KM_ScriptSound.pas',
   KM_Sound in 'src\media\KM_Sound.pas',
@@ -354,6 +364,7 @@ uses
 
   KM_ScriptFilesCollection in 'src\scripting\KM_ScriptFilesCollection.pas',
   KM_ScriptErrorHandler in 'src\scripting\KM_ScriptErrorHandler.pas',
+  {$IFDEF DARWIN}KM_ScriptingNative in 'src\scripting\KM_ScriptingNative.pas',{$ENDIF}
   KM_Scripting in 'src\scripting\KM_Scripting.pas',
   KM_ScriptingActions in 'src\scripting\KM_ScriptingActions.pas',
   KM_ScriptingConsoleCommands in 'src\scripting\KM_ScriptingConsoleCommands.pas',
@@ -418,6 +429,7 @@ uses
   KM_UnitTaskThrowRock in 'src\units\tasks\KM_UnitTaskThrowRock.pas',
 
   KM_CommonShellUtils in 'src\utils\KM_CommonShellUtils.pas',
+  KM_FPU in 'src\utils\KM_FPU.pas',
   KM_CommonUtils in 'src\utils\KM_CommonUtils.pas',
   KM_Utils in 'src\utils\KM_Utils.pas',
   KM_UtilsExt in 'src\utils\KM_UtilsExt.pas',
@@ -472,6 +484,7 @@ uses
 {$ENDIF}
 
 begin
+  {$IFDEF DARWIN}ConfigureGameFPU;{$ENDIF}
   Application.Initialize;
   Application.Title := 'KaM Remake';
 
@@ -491,8 +504,15 @@ begin
     // We know and control EGameInitError instances and can show them without generating a crashreport
     // Other exceptions will be catched by madExcept
     on E: EGameInitError do
+    begin
+      {$IFDEF DARWIN}
+      WriteLn(StdErr, E.ClassName, ': ', E.Message);
+      DumpExceptionBackTrace(StdErr);
+      Flush(StdErr);
+      {$ENDIF}
       // MessageDlg works better than Application.MessageBox or others, it stays on top and pauses here until the user clicks ok
       MessageDlg(E.Message, mtWarning, [mbOk], 0);
+    end;
   end;
 
 end.
