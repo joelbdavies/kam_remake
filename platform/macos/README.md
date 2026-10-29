@@ -97,7 +97,7 @@ python3 platform/macos/test-campaigns.py --data-dir assets.local/runtime-data \
 For the save/resume, collection-boundary and input regressions, build these additional probes after the game and stage disposable data:
 
 ```sh
-for probe in Trajectory Collection Keyboard CocoaEvent Mouse Compatibility; do
+for probe in Trajectory Collection Keyboard CocoaEvent Mouse Cursor Compatibility; do
   KAM_PASCAL_ENTRY="platform/macos/probes/KM_Mac${probe}Probe.lpr" \
     platform/macos/build.sh
 done
@@ -110,13 +110,14 @@ python3 platform/macos/test-regressions.py \
   --output assets.local/regression-results
 ```
 
-Use a fresh output directory for each run. The runner requires disposable data inside this checkout's `assets.local` directory and writes logs plus `results.json`. Use `--only trajectory`, `--only collections`, `--only keyboard`, `--only mouse` or `--only upstream` to select a suite.
+Use a fresh output directory for each run. The runner requires disposable data inside this checkout's `assets.local` directory and writes logs plus `results.json`. Use `--only trajectory`, `--only collections`, `--only keyboard`, `--only mouse`, `--only cursor` or `--only upstream` to select a suite.
 
 - Save/resume: TSK2 and TPR3 each run continuously to tick 6,000, then repeat with a save at tick 1,500 and resume in a fresh process. Both runs receive the same road, recruitment and formation commands where applicable. The suite compares 504 binary snapshots per mission, covering RNG/IDs, terrain, all players' resources/units/jobs/orders/AI, pathfinding, projectiles, script state, scripted sounds and custom resources. UI timing and save headers are excluded.
 - Collections: actual pending AI equipment orders and scripted sound-removal requests are saved and reloaded at counts 0, 1, 2 and 8. References and remaining acknowledgements must survive and complete. Live-game checkpoint scheduling is checked before, at and after limits 0, 1, 2, 30 and 60; large collections are prefilled just below the limit before crossing real scheduled boundaries.
 - Keyboard: callback checks cover editing/navigation keys, all 95 printable ASCII characters, F1-F12, shortcut combinations and repeated keys. A second probe dispatches events through the actual Cocoa application with both the window's text-input responder and the OpenGL view focused. Test-only method observers verify that editing/navigation/function keys are consumed before native command processing; printable characters must still arrive exactly once. Native controls retain their input, and focus changes must release held camera keys. Modifier semantics are also checked through the form because synthetic events do not replace macOS's current hardware modifier state. A listener should still confirm that no warning bell is audible during ordinary play.
 
 - Mouse: checks camera movement at all four monitor edges outside an inset game window, stale events rejected by the game, remote event coordinates inside the render area, right/bottom boundary exclusion, keyboard scrolling and inactive/disabled scrolling. The probe injects process-local Cocoa cursor queries and LCL activation messages; it restores the native method and never moves the user's real pointer.
+- Cursor images: compares every pixel in all 28 native Cocoa cursor images against the source sprite colors and the game's binary opacity policy. It also verifies dimensions and fully transparent padding, including the invisible cursor, and exports the native images to PNG. The native cursor is restored after inspection; the pointer position is unchanged.
 - Upstream integration: exercises replacement of the settings XML before updating hotkeys, a soldier walking past a diagonally pacing animal, replaying a game with no AI, and rejection of unknown revisions or mismatched save/replay companions.
 
 To test original native saves, copy their complete folders (including `.bas`, `.rpl` and any `.spt` files) into `Saves/` in disposable staged data. The compatibility runner checks normal Load-menu eligibility, resumed simulation, repeated serialization and checkpoint preservation. It can also replay an original save and its continued copy from their base state and restore an original checkpoint:

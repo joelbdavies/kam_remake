@@ -6,7 +6,8 @@ Tested on 29 October 2026 on an Apple M4 running macOS Sequoia 15.8.1. The deplo
 
 - Current source base: upstream `11cd5fd0e10ae6e8cfce27493564e49cd8ee11d5` (r16421), integrated with the native port on `codex/macos-fpc-mvp`.
 - Original MVP source base: `ddb0a6cccfdd031c4c4ec6358a70827aa1e4ad8c` (r16406).
-- Current packaged executable SHA-256: `a31915f6b976b9a010aa994ca02239507094abb625fe5ea95a8b09842bc9c9c4` (r16421 with the macOS cursor-boundary fix).
+- Current packaged executable SHA-256: `191d30ff2bed0df4424344b50fcde8999f4ddbdd0e25d9cc04e2e85af140d9c7` (r16421 with corrected native cursor colors and transparency).
+- Previous cursor-boundary executable SHA-256: `a31915f6b976b9a010aa994ca02239507094abb625fe5ea95a8b09842bc9c9c4`.
 - Previous r16421 integration executable SHA-256: `87eeb507f4c4b4959669dbb8a5e149708c11105803d43d1cdd884ea8c36c6422` (native r16406 save/replay compatibility).
 - Previous native-command-fix executable SHA-256: `82de7e736cb2a40e9123e9a2ae4d9a25e6e682ac26d83811559606a50ddf8c76` (early handling of native editing commands; package includes Dock icon).
 - Previous Dock-icon executable SHA-256: `cade881b466f89c11dbd658c0815fff4900cb60bc371011dcc4ba42bf1b82a24` (save collections and callback-level keyboard checks).
@@ -17,6 +18,18 @@ Tested on 29 October 2026 on an Apple M4 running macOS Sequoia 15.8.1. The deplo
 - The app passes `codesign --verify --deep --strict`. Its library search path is `@executable_path/../Frameworks`; other linked libraries are supplied by macOS.
 
 The latest six-file app bundle is `assets.local/build/macos/KaM Remake.app`, with `CFBundleVersion` set to `16421` from the source revision. The previously installed r16406 app at `~/Applications/KaM Remake.app` was not replaced during this integration. Assets, settings, logs, saves and campaign progress live in `~/Library/Application Support/KaM Remake/`. All integration runs used disposable data directories, and all 39 original player save files retained their SHA-256 hashes.
+
+## Cursor transparency regression
+
+The player reported a translucent gray square under the normal pointer. Inspection of the actual Cocoa cursor images confirmed corrupted opacity: the normal 35x32 pointer had 910 partially transparent pixels and 1,066 alpha mismatches against its source artwork; even the 1x1 invisible cursor was partially visible. Colors were also incorrect.
+
+The macOS cursor path now populates a format-aware RGBA image, refreshes the bitmap handle for each cursor, and uses explicit alpha instead of the legacy mask. It keeps the existing binary opacity policy and hotspot calculations. Windows and other Unix cursor paths are unchanged.
+
+All 28 native cursor images now match source dimensions, colors and opacity pixel for pixel, with zero alpha/color mismatches and no nonzero color data in transparent pixels. The normal pointer has 484 fully transparent background pixels and 636 opaque pixels; the invisible cursor is completely transparent. The probe inspects the actual `NSCursor` images, exports PNGs, and restores the previous native cursor without moving the pointer. A fresh visual confirmation on the player's laptop is still pending.
+
+The full Free Pascal game build, all four mouse regression groups, keyboard checks and both native Cocoa responder checks pass. The app was packaged and its ad-hoc signature verified. This change does not alter saves or simulation, and all runtime checks used disposable data. The installed player app was not replaced.
+
+Evidence: `assets.local/cursor-alpha/before.log`, `before/`, `cursor-after/results.json`, `cursor-after/cursor-images/`, `mouse-after/results.json`, `keyboard-after/results.json`, `game-build.log` and `package-manifest.json` under the same directory. Broader campaign and autosave results below remain associated with their earlier builds.
 
 ## Cursor review regression
 
