@@ -412,7 +412,9 @@ begin
     // same event position as selection and orders in that case.
     mousePos := Mouse.CursorPos;
     {$IFDEF DARWIN}
-    if (gCursor.Pixel.X <> 0) or (gCursor.Pixel.Y <> 0) then
+    // Game events stop updating gCursor outside the render area.
+    if PtInRect(gMain.ClientRect, mousePos)
+      and ((gCursor.Pixel.X <> 0) or (gCursor.Pixel.Y <> 0)) then
       mousePos := gMain.ClientToScreen(Point(gCursor.Pixel.X, gCursor.Pixel.Y));
     {$ENDIF}
   {$ENDIF}

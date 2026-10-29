@@ -6,7 +6,8 @@ Tested on 29 October 2026 on an Apple M4 running macOS Sequoia 15.8.1. The deplo
 
 - Current source base: upstream `11cd5fd0e10ae6e8cfce27493564e49cd8ee11d5` (r16421), integrated with the native port on `codex/macos-fpc-mvp`.
 - Original MVP source base: `ddb0a6cccfdd031c4c4ec6358a70827aa1e4ad8c` (r16406).
-- Current packaged executable SHA-256: `87eeb507f4c4b4959669dbb8a5e149708c11105803d43d1cdd884ea8c36c6422` (r16421 integration and native r16406 save/replay compatibility).
+- Current packaged executable SHA-256: `a31915f6b976b9a010aa994ca02239507094abb625fe5ea95a8b09842bc9c9c4` (r16421 with the macOS cursor-boundary fix).
+- Previous r16421 integration executable SHA-256: `87eeb507f4c4b4959669dbb8a5e149708c11105803d43d1cdd884ea8c36c6422` (native r16406 save/replay compatibility).
 - Previous native-command-fix executable SHA-256: `82de7e736cb2a40e9123e9a2ae4d9a25e6e682ac26d83811559606a50ddf8c76` (early handling of native editing commands; package includes Dock icon).
 - Previous Dock-icon executable SHA-256: `cade881b466f89c11dbd658c0815fff4900cb60bc371011dcc4ba42bf1b82a24` (save collections and callback-level keyboard checks).
 - Previous save/arrow-key executable SHA-256: `01a40c50c704d3afbff6b5e224fe6c4508201f5e71990e56f18a2a0c033c6479`.
@@ -16,6 +17,16 @@ Tested on 29 October 2026 on an Apple M4 running macOS Sequoia 15.8.1. The deplo
 - The app passes `codesign --verify --deep --strict`. Its library search path is `@executable_path/../Frameworks`; other linked libraries are supplied by macOS.
 
 The latest six-file app bundle is `assets.local/build/macos/KaM Remake.app`, with `CFBundleVersion` set to `16421` from the source revision. The previously installed r16406 app at `~/Applications/KaM Remake.app` was not replaced during this integration. Assets, settings, logs, saves and campaign progress live in `~/Library/Application Support/KaM Remake/`. All integration runs used disposable data directories, and all 39 original player save files retained their SHA-256 hashes.
+
+## Cursor review regression
+
+The macOS viewport now uses cached event coordinates only while the global cursor is inside the render area. Outside it, the global position remains authoritative, restoring monitor-edge scrolling for an inset window. The check uses the render control's screen-space rectangle, including its exclusive right/bottom boundaries.
+
+The new mouse probe failed against the previous source at the left monitor edge. After the fix, all four test groups pass: all four monitor edges and return inside; stale coordinates after a rejected outside event; keyboard scrolling and inactive/disabled scrolling; and remote event coordinates inside the view plus right/bottom boundary exclusion. It uses a process-local Cocoa cursor-query fixture and injected LCL activation state, restores the native method, and does not move the real pointer. This is automated viewport integration coverage, not a new physical-pointer playtest.
+
+The full Free Pascal game build, existing keyboard checks and both native Cocoa responder checks also pass. The updated app was packaged and its ad-hoc signature verified. The installed player app was not replaced. No save format or simulation code changed, and the broader save/campaign/soak results below remain from the previous r16421 integration build.
+
+Evidence: `assets.local/cursor-review/mouse-before.log`, `mouse-after/results.json`, `keyboard-after/results.json`, `game-build.log` and `package-manifest.json` under the same directory. All runtime checks used disposable data.
 
 ## r16421 integration results
 

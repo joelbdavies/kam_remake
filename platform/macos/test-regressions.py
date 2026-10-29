@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test native save/resume fidelity, save collections and Cocoa keyboard handling."""
+"""Test native save/resume fidelity, save collections and Cocoa input handling."""
 import argparse
 import hashlib
 import json
@@ -16,7 +16,7 @@ parser.add_argument('--output', type=Path, default=root / 'assets.local/regressi
 parser.add_argument('--missions', nargs='+', default=['TSK2', 'TPR3'])
 parser.add_argument('--cut-tick', type=int, default=1500)
 parser.add_argument('--end-tick', type=int, default=6000)
-parser.add_argument('--only', choices=['all', 'trajectory', 'collections', 'keyboard', 'upstream'], default='all')
+parser.add_argument('--only', choices=['all', 'trajectory', 'collections', 'keyboard', 'mouse', 'upstream'], default='all')
 parser.add_argument('--legacy-baseline', type=Path, help='Compare existing r16406 save fixtures against a prior trajectory run')
 args = parser.parse_args()
 if args.legacy_baseline is not None and args.only != 'trajectory':
@@ -33,7 +33,8 @@ results = []
 for suite, executable, expected_checks in [('upstream', 'KM_MacCompatibilityProbe', 5),
                                           ('collections', 'KM_MacCollectionProbe', 13),
                                           ('keyboard', 'KM_MacKeyboardProbe', 1),
-                                          ('cocoa-events', 'KM_MacCocoaEventProbe', 2)]:
+                                          ('cocoa-events', 'KM_MacCocoaEventProbe', 2),
+                                          ('mouse', 'KM_MacMouseProbe', 4)]:
     selection = 'keyboard' if suite == 'cocoa-events' else suite
     if args.only not in ('all', selection):
         continue
