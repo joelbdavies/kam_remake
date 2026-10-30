@@ -13,7 +13,6 @@ type
   TKMGameParams = class
   private
     fMode: TKMGameMode;
-    fSaveVersion: AnsiString; // Persisted in the existing save/replay header; selects compatible simulation rules.
     fMissionMode: TKMissionMode;
     fTick: Cardinal;
     fTickFrac: Single;
@@ -57,7 +56,6 @@ type
     destructor Destroy; override;
 
     property Mode: TKMGameMode read fMode;
-    property SaveVersion: AnsiString read fSaveVersion write fSaveVersion;
     property MissionMode: TKMissionMode read fMissionMode write fMissionMode;
     property Tick: Cardinal read fTick;
     property TickFrac: Single read fTickFrac;
@@ -127,7 +125,6 @@ begin
   fVisibleLayers := [mlObjects, mlHouses, mlUnits, mlOverlays];
 
   fMode := aGameMode;
-  fSaveVersion := GAME_REVISION;
   fTick := 0;
   fMissionDifficulty := mdNone;
   DynamicFOW := False;

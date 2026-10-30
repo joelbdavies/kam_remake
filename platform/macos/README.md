@@ -60,11 +60,9 @@ The app bundles its arm64 BASS library and uses system frameworks for Cocoa, Ope
 
 After installing the data, move `KaM Remake.app` to `~/Applications` and launch it normally. Select **Single Player → Campaigns** for the retail missions. Use the green window button for fullscreen and Command-Q to quit. Save names accept ordinary keyboard entry; in-game editing shortcuts retain the game's Control-key bindings.
 
-## Existing native saves
+## Save policy
 
-The r16421 build accepts saves made by the original native r16406 MVP without enabling the unsupported-save debug option. Existing games retain their r16406 save, replay and checkpoint headers and original animal-movement timing. This keeps their recorded history deterministic and retains the original native save layout. Newly started games use r16421 and the upstream fix for animals blocking diagonal movement. The application version still reports r16421 when an older game is loaded.
-
-Compatibility is restricted to these two audited native revisions. Other revisions and Windows saves are not covered. This is not a general save-format bypass, and future upstream updates must recheck both serialization and simulation compatibility.
+This branch follows upstream's build-specific save policy: saves and replay files must match the executable's `GAME_REVISION`. New saves always write that revision. Older native r16406 saves are not supported on this branch; use `codex/macos-fpc-mvp` to continue those games. Campaign unlock progress remains version-independent.
 
 ## Verification
 
@@ -97,7 +95,7 @@ python3 platform/macos/test-campaigns.py --data-dir assets.local/runtime-data \
 For the save/resume, collection-boundary and input regressions, build these additional probes after the game and stage disposable data:
 
 ```sh
-for probe in Trajectory Collection Keyboard CocoaEvent Mouse Cursor Compatibility; do
+for probe in Trajectory Collection Keyboard CocoaEvent Mouse Cursor Upstream; do
   KAM_PASCAL_ENTRY="platform/macos/probes/KM_Mac${probe}Probe.lpr" \
     platform/macos/build.sh
 done
@@ -118,32 +116,11 @@ Use a fresh output directory for each run. The runner requires disposable data i
 
 - Mouse: checks camera movement at all four monitor edges outside an inset game window, stale events rejected by the game, remote event coordinates inside the render area, right/bottom boundary exclusion, keyboard scrolling and inactive/disabled scrolling. The probe injects process-local Cocoa cursor queries and LCL activation messages; it restores the native method and never moves the user's real pointer.
 - Cursor images: compares every pixel in all 28 native Cocoa cursor images against the source sprite colors and the game's binary opacity policy. It also verifies dimensions and fully transparent padding, including the invisible cursor, and exports the native images to PNG. The native cursor is restored after inspection; the pointer position is unchanged.
-- Upstream integration: exercises replacement of the settings XML before updating hotkeys, a soldier walking past a diagonally pacing animal, replaying a game with no AI, and rejection of unknown revisions or mismatched save/replay companions.
-
-To test original native saves, copy their complete folders (including `.bas`, `.rpl` and any `.spt` files) into `Saves/` in disposable staged data. The compatibility runner checks normal Load-menu eligibility, resumed simulation, repeated serialization and checkpoint preservation. It can also replay an original save and its continued copy from their base state and restore an original checkpoint:
-
-```sh
-python3 platform/macos/test-compatibility.py \
-  --data-dir assets.local/legacy-data --output assets.local/legacy-results \
-  --saves 'Town Tutorial2' 'Town Tutorial4' \
-  --replay 'Town Tutorial4' --replay-tick 36458
-```
-
-The save names and replay tick above refer to local test fixtures; substitute your own originals. No player saves are distributed in the repository.
-
-If a previous r16406 trajectory run and its original save fixtures are available, compare the upgraded executable against those recorded component snapshots:
-
-```sh
-python3 platform/macos/test-regressions.py \
-  --data-dir assets.local/legacy-data --output assets.local/legacy-trajectories \
-  --only trajectory --legacy-baseline assets.local/previous-r16406-results
-```
-
-This mode only resumes the existing fixtures; it does not replace them with newly generated r16421 saves. The default cut/end ticks and missions must match the earlier run.
+- Upstream integration: exercises replacement of the settings XML before updating hotkeys, a soldier walking past a diagonally pacing animal, replaying a game with no AI, current-revision save/replay headers, and rejection of older or unknown revisions with debug overrides disabled.
 
 Other probes cover Cocoa/OpenGL drawing and pixel readback, BASS/OpenAL playback, PascalScript's ARM64 host-call ABI, and XML/Base64/PNG/file operations. The data probe also exercises replay checkpoint serialization with zero, one, two and four checkpoints. Their command-line arguments are documented in each probe's usage error. Audio playback progress proves the backend is running; it does not substitute for a listener checking the selected output device.
 
-`KM_MacSaveInputProbe` reproduces the reported tutorial regression. It requires copies of `Town Tutorial2` and `Town Tutorial4` in the `Saves` folder of a disposable staged data directory under `assets.local`. It loads the former, runs the latter for another simulated hour, verifies repeated named saves and all five autosave slots, and checks the Cocoa arrow-key message path. It rejects the normal player data location. Build it after the game, then run:
+`KM_MacSaveInputProbe` starts a fresh Town Tutorial with the current executable, checks an initial save/reload, runs one simulated hour plus one tick to schedule the final autosave, and verifies repeated named saves, all five autosave slots and the Cocoa arrow-key message path. It requires disposable staged data under `assets.local` and does not use player save fixtures. Build it after the game, then run:
 
 ```sh
 KAM_PASCAL_ENTRY=platform/macos/probes/KM_MacSaveInputProbe.lpr platform/macos/build.sh

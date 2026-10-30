@@ -17,10 +17,7 @@ parser.add_argument('--missions', nargs='+', default=['TSK2', 'TPR3'])
 parser.add_argument('--cut-tick', type=int, default=1500)
 parser.add_argument('--end-tick', type=int, default=6000)
 parser.add_argument('--only', choices=['all', 'trajectory', 'collections', 'keyboard', 'mouse', 'cursor', 'upstream'], default='all')
-parser.add_argument('--legacy-baseline', type=Path, help='Compare existing r16406 save fixtures against a prior trajectory run')
 args = parser.parse_args()
-if args.legacy_baseline is not None and args.only != 'trajectory':
-    parser.error('--legacy-baseline requires --only trajectory')
 data = args.data_dir.resolve()
 if root / 'assets.local' not in data.parents or not (data / 'Campaigns').is_dir():
     parser.error('Use disposable staged data under this checkout\'s assets.local directory')
@@ -30,7 +27,7 @@ output = args.output.resolve()
 output.mkdir(parents=True, exist_ok=True)
 environment = dict(os.environ, KAM_DATA_DIR=str(data))
 results = []
-for suite, executable, expected_checks in [('upstream', 'KM_MacCompatibilityProbe', 5),
+for suite, executable, expected_checks in [('upstream', 'KM_MacUpstreamProbe', 6),
                                           ('collections', 'KM_MacCollectionProbe', 13),
                                           ('keyboard', 'KM_MacKeyboardProbe', 1),
                                           ('cocoa-events', 'KM_MacCocoaEventProbe', 2),
@@ -46,9 +43,7 @@ for suite, executable, expected_checks in [('upstream', 'KM_MacCompatibilityProb
     with log_path.open('w') as log:
         try:
             command = [str(root / 'assets.local/build/macos/bin' / executable)]
-            if suite == 'upstream':
-                command.append('upstream')
-            elif suite == 'cursor':
+            if suite == 'cursor':
                 command.append(str(output / 'cursor-images'))
             run = subprocess.run(command,
                                  env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=240)
@@ -75,9 +70,7 @@ for mission in (args.missions if args.only in ('all', 'trajectory') else []):
         parser.error(f'Invalid mission: {mission}')
     result = {'suite': 'trajectory', 'mission': mission, 'phases': [], 'differences': []}
     results.append(result)
-    if args.legacy_baseline is not None:
-        result['legacy_baseline'] = str(args.legacy_baseline.resolve())
-    for phase in (('resume',) if args.legacy_baseline is not None else ('start', 'save', 'resume')):
+    for phase in ('start', 'save', 'resume'):
         directory = output / mission / phase
         directory.mkdir(parents=True, exist_ok=True)
         # Reject stale evidence instead of mixing it with a previous execution.
@@ -100,7 +93,7 @@ for mission in (args.missions if args.only in ('all', 'trajectory') else []):
             (output / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
             raise SystemExit(1)
     resumed = output / mission / 'resume'
-    expected = (args.legacy_baseline.resolve() if args.legacy_baseline is not None else output) / mission / 'start'
+    expected = output / mission / 'start'
     files = sorted(resumed.glob('*.bin'))
     expected_ticks = {tick for tick in range(args.cut_tick, args.end_tick + 1)
                       if tick <= args.cut_tick + 10 or tick % 100 == 0}

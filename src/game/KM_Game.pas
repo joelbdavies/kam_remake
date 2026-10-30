@@ -2068,7 +2068,6 @@ begin
   // Save to HeaderStream at first
   // ----------------------------------------------------------------
   try
-    gameInfo.Version := fParams.SaveVersion;
     gameInfo.Title := fParams.Name;
     gameInfo.MapFullCRC := fParams.MapFullCRC;
     gameInfo.MapSimpleCRC := fParams.MapSimpleCRC;
@@ -2513,8 +2512,6 @@ begin
       if (gameInfo.ParseError.ErrorType <> gipetNone)
       and not (DBG_ALLOW_LOAD_UNSUP_VERSION_SAVE and (gameInfo.ParseError.ErrorType = gipetUnsupportedVersion)) then
         raise EReadError.Create(gameInfo.ParseError.ErrorString);
-      if IsLegacyMacSaveVersion(gameInfo.Version) then
-        fParams.SaveVersion := gameInfo.Version;
       fParams.Name := gameInfo.Title;
       fParams.MapFullCRC := gameInfo.MapFullCRC;
       fParams.MapSimpleCRC := gameInfo.MapSimpleCRC;

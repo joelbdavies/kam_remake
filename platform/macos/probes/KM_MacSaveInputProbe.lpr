@@ -152,16 +152,17 @@ begin
     gGameSettings.AutosaveCount := 5;
     gGameSettings.SaveCheckpoints := True;
     gGameSettings.SaveCheckpointsFreq := 9000;
-    gGameApp.NewGameSingleSave('Town Tutorial2');
+    DBG_ALLOW_LOAD_UNSUP_VERSION_SAVE := False;
+    gGameApp.NewGameSingleMap(ExeDir + TUTORIALS_FOLDER_NAME + PathDelim + 'Town Tutorial' + PathDelim + 'Town Tutorial.dat',
+      'Town Tutorial');
     CheckGame;
-    WriteLn('Loaded original Town Tutorial2 at tick ', gGameParams.Tick);
-    CheckSaveReload('mac-regression-recovered-tutorial2');
-    gGameApp.NewGameSingleSave('Town Tutorial4');
-    CheckGame;
+    CheckSaveReload('mac-regression-fresh-tutorial');
     CheckInput;
     initialTick := gGameParams.Tick;
     initialPoints := gGame.SavePoints.Count;
-    for I := 1 to 36000 do
+    // Autosaves run before the tick increment; process one extra tick so the
+    // save for minute 60 is scheduled before checking the five rotated files.
+    for I := 1 to 36001 do
     begin
       gGameApp.DoGameTick;
       gGameApp.UpdateState;
@@ -175,7 +176,7 @@ begin
       end;
     end;
     finalTick := gGameParams.Tick;
-    Check(finalTick >= initialTick + 36000, 'Simulation stopped before an additional hour');
+    Check(finalTick = initialTick + 36001, 'Simulation did not complete the hour and autosave boundary tick');
     Check(gGame.SavePoints.Count >= initialPoints + 4, 'Hourly test did not create four new checkpoints');
     gGame.WaitForAllSavesToBeDone;
     CheckSaveReload('mac-regression-Town Tutorial');
@@ -195,8 +196,8 @@ begin
       gGameApp.NewGameSingleSave(autoName);
       CheckGame;
       autoTick := gGameParams.Tick;
-      Check((autoTick <= finalTick) and (autoTick > finalTick - Cardinal(I * 600)),
-        'Rotated autosave did not advance to the latest minute');
+      Check(autoTick = initialTick + 36000 - Cardinal((I - 1) * 600),
+        'Rotated autosave has the wrong minute: ' + autoName + ' at tick ' + IntToStr(autoTick));
       Check(gGame.SavePoints.Count = latestPoints, 'Autosave reload lost checkpoints');
       gGameApp.DoGameTick;
       Check(gGameParams.Tick > autoTick, 'Reloaded autosave did not resume');
@@ -207,7 +208,7 @@ begin
     gMain.Free;
     gMain := nil;
     probe.Free;
-    WriteLn('PASS: original tutorial recovery, an additional hour, repeated named saves, overwrite and all five autosave slots');
+    WriteLn('PASS: fresh tutorial save/reload, one simulated hour, repeated named saves, overwrite and all five autosave slots');
   except
     on E: Exception do
     begin

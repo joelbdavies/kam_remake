@@ -86,7 +86,6 @@ begin
   inherited Create;
 
   fMapTxtInfo := aMapTxtInfo;
-  Version := GAME_REVISION;
   ResetParseError;
 end;
 
@@ -160,7 +159,7 @@ begin
   end;
 
   LoadStream.ReadA(Version);
-  if not IsSaveVersionSupported(Version) then
+  if Version <> GAME_REVISION then
   begin
     fParseError.ErrorString := Format(gResTexts[TX_SAVE_UNSUPPORTED_VERSION], [Version]);
     fParseError.ErrorType := gipetUnsupportedVersion;
@@ -186,7 +185,7 @@ var
   I: Integer;
 begin
   SaveStream.WriteA('KaM_GameInfo');
-  SaveStream.WriteA(Version); // Keep the simulation revision when continuing a compatible older game.
+  SaveStream.WriteA(GAME_REVISION); //Save current revision
   SaveStream.Write(gRes.GetDATCRC);
   SaveStream.Write(MapFullCRC);
   SaveStream.Write(MapSimpleCRC);

@@ -29,7 +29,7 @@ type
 implementation
 uses
   Math,
-  KM_CommonUtils, KM_Resource, KM_ResUnits, KM_GameParams;
+  KM_CommonUtils, KM_Resource, KM_ResUnits;
 
 
 { TKMUnitActionSteer }
@@ -139,9 +139,8 @@ const
 var
   dx, dy: Shortint;
   walkX, walkY, distance: Single;
-  firstStep, legacySteering: Boolean;
+  firstStep: Boolean;
 begin
-  legacySteering := IsLegacyMacSaveVersion(gGameParams.SaveVersion);
   if KMSamePoint(fNextPos, KMPOINT_ZERO) then
   begin
     fNextPos := fUnit.Position; //Set fNextPos to current pos so it initializes on the first run
@@ -176,21 +175,17 @@ begin
     //Do some house keeping because we have now stepped on a new tile
     fUnit.PositionNext := fNextPos;
     fUnit.Walk(fUnit.PositionPrev, fUnit.PositionNext); //Pre-occupy next tile
-    // Existing native games keep their recorded movement rules across save/load and replay.
-    if legacySteering and KMStepIsDiag(fUnit.PositionPrev, fUnit.PositionNext) then
-      IncVertex(fUnit.PositionPrev, fUnit.PositionNext);
     //Update unit direction so we are facing the way we are going
     fUnit.Direction := KMGetDirection(fUnit.PositionPrev, fUnit.PositionNext);
 
     //On a diagonal step take the vertex on the next tick, not on this one. Releasing and retaking it
     //within a single Execute leaves no tick in which anyone else can see it free (animals update
     //after all the hands), which is how an animal pacing to and fro locks a diagonal forever
-    if not legacySteering and KMStepIsDiag(fUnit.PositionPrev, fUnit.PositionNext) then
+    if KMStepIsDiag(fUnit.PositionPrev, fUnit.PositionNext) then
       Exit(arActContinues);
   end;
 
-  if not legacySteering
-  and KMSamePoint(fVertexOccupied, KMPOINT_ZERO)
+  if KMSamePoint(fVertexOccupied, KMPOINT_ZERO)
   and KMStepIsDiag(fUnit.PositionPrev, fUnit.PositionNext) then
   begin
     //Someone is already crossing our diagonal, let them finish
