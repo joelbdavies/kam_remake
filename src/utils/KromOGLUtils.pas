@@ -1,11 +1,13 @@
 unit KromOGLUtils;
 {$I KaM_Remake.inc}
+{$IFDEF DARWIN}{$LINKFRAMEWORK OpenGL}{$ENDIF}
 interface
 uses
   dglOpenGL,
   {$IFDEF FPC} GL, LCLIntf, {$ENDIF}
   {$IFDEF MSWindows} Windows {$ENDIF}
-  {$IFDEF Unix} LCLType, glx, x, xlib, xutil {$ENDIF}
+  {$IFDEF Unix} LCLType {$ENDIF}
+  {$IFDEF Linux}, glx, x, xlib, xutil {$ENDIF}
   ;
 
 {$IFDEF Unix}

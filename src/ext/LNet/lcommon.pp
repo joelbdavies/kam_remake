@@ -461,7 +461,11 @@ end;
 
 function TZSeconds: Integer; inline;
 begin
+  {$IF FPC_FULLVERSION >= 30301}
+  Result := -SysUtils.GetLocalTimeOffset * 60;
+  {$ELSE}
   Result := unixutil.TZSeconds;
+  {$ENDIF}
 end;
 
 {$ENDIF}

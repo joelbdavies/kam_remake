@@ -4,7 +4,7 @@ interface
 uses
   KM_CommonTypes,
   {$IFDEF WDC} PNGImage; {$ENDIF}
-  {$IFDEF FPC} BGRABitmap, BGRABitmapTypes; {$ENDIF}
+  {$IFDEF FPC} FPImage, FPReadPNG, FPWritePNG; {$ENDIF}
 
 
   procedure SaveToPng(aWidth, aHeight: Word; const aPixelData: TKMCardinalArray; const aFilename: UnicodeString);
@@ -19,7 +19,11 @@ uses
 procedure SaveToPng(aWidth, aHeight: Word; const aPixelData: TKMCardinalArray; const aFilename: UnicodeString);
 var
   {$IFDEF WDC} Png: PNGImage.TPngImage; {$ENDIF}
-  {$IFDEF FPC} Png: TBGRABitmap; {$ENDIF}
+  {$IFDEF FPC}
+  Png: TFPMemoryImage;
+  writer: TFPWriterPNG;
+  color: TFPColor;
+  {$ENDIF}
   I, K: Integer;
   T: Cardinal;
 begin
@@ -42,19 +46,23 @@ begin
     end;
   {$ENDIF}
   {$IFDEF FPC}
-    Png := TBGRABitmap.Create(aWidth, aHeight, BGRABlack);
+    Png := TFPMemoryImage.Create(aWidth, aHeight);
+    writer := TFPWriterPNG.Create;
     try
+      writer.UseAlpha := True;
       for I := 0 to aHeight - 1 do
       for K := 0 to aWidth - 1 do
       begin
         T := aPixelData[I * aWidth + K];
-        //I can't figure out how to get transparency to save in PNGs, so for now everything is opaque
-        Png.CanvasBGRA.Pixels[K,I] := T and $FFFFFF;
-        Png.AlphaPixel(K, I, 255);
+        color.Red := (T and $FF) * $101;
+        color.Green := ((T shr 8) and $FF) * $101;
+        color.Blue := ((T shr 16) and $FF) * $101;
+        color.Alpha := (T shr 24) * $101;
+        Png.Colors[K, I] := color;
       end;
-
-      Png.SaveToFile(aFilename);
+      Png.SaveToFile(UTF8Encode(aFilename), writer);
     finally
+      writer.Free;
       Png.Free;
     end;
   {$ENDIF}
@@ -68,7 +76,9 @@ var
   T: Byte;
   {$ENDIF}
   {$IFDEF FPC}
-  Png: TBGRABitmap;
+  Png: TFPMemoryImage;
+  reader: TFPReaderPNG;
+  color: TFPColor;
   {$ENDIF}
   I, K: Integer;
 begin
@@ -109,17 +119,28 @@ begin
     Png.Free;
   {$ENDIF}
   {$IFDEF FPC}
-    Png := TBGRABitmap.Create(aFile);
-
-    aWidth := Png.Width;
-    aHeight := Png.Height;
-    SetLength(aPixelData, Png.Width * Png.Height);
-
-    for K:=0 to Png.Height-1 do for I:=0 to Png.Width-1 do
-      aPixelData[K * Png.Width + I] := cardinal(Png.GetPixel(I,K).red) or (cardinal(Png.GetPixel(I,K).green) shl 8) or
-                                      (cardinal(Png.GetPixel(I,K).blue) shl 16) or (cardinal(Png.GetPixel(I,K).alpha) shl 24);
-
-    Png.Free;
+    Png := TFPMemoryImage.Create(0, 0);
+    reader := TFPReaderPNG.Create;
+    try
+      Png.LoadFromFile(UTF8Encode(aFile), reader);
+      if (Png.Width > High(Word)) or (Png.Height > High(Word)) then
+        raise Exception.Create('PNG dimensions exceed the game limit');
+      aWidth := Png.Width;
+      aHeight := Png.Height;
+      SetLength(aPixelData, Png.Width * Png.Height);
+      for K := 0 to Png.Height - 1 do
+      for I := 0 to Png.Width - 1 do
+      begin
+        color := Png.Colors[I, K];
+        aPixelData[K * Png.Width + I] := Cardinal(color.Red shr 8)
+          or (Cardinal(color.Green shr 8) shl 8)
+          or (Cardinal(color.Blue shr 8) shl 16)
+          or (Cardinal(color.Alpha shr 8) shl 24);
+      end;
+    finally
+      reader.Free;
+      Png.Free;
+    end;
   {$ENDIF}
 end;
 

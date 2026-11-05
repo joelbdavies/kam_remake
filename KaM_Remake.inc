@@ -27,6 +27,11 @@
   {$MODE Delphi}
   // Allow advanced records in Lazarus
   {$modeSwitch advancedRecords}
+  {$IF FPC_FULLVERSION >= 30301}
+    {$MODESWITCH ANONYMOUSFUNCTIONS}
+    {$MODESWITCH FUNCTIONREFERENCES}
+    {$DEFINE KM_FUNCTION_REFERENCES}
+  {$ENDIF}
 
   // Currently FPC does not define UNICODE define because in Delphi it means more than just a
   // default string type but a full RTL implementation : using Windows 'W' functions instead of 'A',
@@ -39,6 +44,7 @@
 
 // Delphi compiler specific settings
 {$IFDEF WDC}
+  {$DEFINE KM_FUNCTION_REFERENCES}
   {$IFNDEF WDC64} // Not available on Win64
     // Project can be compiled without madExcept features (if you dont have madExcept installed)
     {$DEFINE USE_MAD_EXCEPT}

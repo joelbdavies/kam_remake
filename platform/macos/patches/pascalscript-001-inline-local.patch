@@ -1,0 +1,19 @@
+--- a/Source/uPSCompiler.pas
++++ b/Source/uPSCompiler.pas
+@@ -6645,6 +6645,7 @@
+       tmp, tmpn: TPSValue;
+       tmp3: TPSValueProcNo;
+       tmp2: Boolean;
++      bType: TPSBaseType;
+ 
+       function FindSubR(const n: tbtString; FType: TPSType): Cardinal;
+       var
+@@ -6841,7 +6842,7 @@
+               x := nil;
+               exit;
+             end;
+-            var bType := GetTypeNo(BlockInfo, tmp).BaseType;
++            bType := GetTypeNo(BlockInfo, tmp).BaseType;
+             if not IsIntType(bType) and not (bType = btEnum) then
+             begin
+               MakeError('', ecTypeMismatch, '');

@@ -34,6 +34,10 @@ type
     {$IFDEF Unix}
       procedure DoOnResize; override;
     {$ENDIF}
+  {$IFDEF DARWIN}
+  protected
+    procedure CreateWnd; override;
+  {$ENDIF}
   published
     property OnMouseWheel; //Required for Lazarus
   public
@@ -48,9 +52,24 @@ type
 
 
 implementation
+{$IFDEF DARWIN}
+uses
+  GLCocoaNSContext;
+{$ENDIF}
 
 
 { TKMRenderControl }
+{$IFDEF DARWIN}
+procedure TKMRenderControl.CreateWnd;
+begin
+  inherited;
+  // Like Cocoa's other custom controls, the game view owns its key events.
+  // Consume any remainder only AFTER LCL has delivered KeyDown and text input.
+  // Consuming every KeyDown early would prevent printable characters arriving.
+  TCocoaOpenGLView(Handle).callback.BlockCocoaKeyBeep := True;
+end;
+{$ENDIF}
+
 
 {$IFDEF MSWindows}
   procedure TKMRenderControl.WMEraseBkgnd(var Message: TWmEraseBkgnd);

@@ -164,6 +164,7 @@ var
 
 implementation
 uses
+  KM_FPU,
   {$IFDEF MSWindows} Windows, {$ENDIF}
   {$IFDEF Unix} LCLType, {$ENDIF}
   DateUtils, Math, TypInfo, KromUtils,
@@ -393,6 +394,8 @@ procedure TKMGameApp.KeyDown(Key: Word; Shift: TShiftState; aIsFirst: Boolean);
 var
   keyHandled: Boolean;
 begin
+  keyHandled := False;
+
   if gVideoPlayer.IsActive then
   begin
     gVideoPlayer.KeyDown(Key, Shift);
@@ -727,12 +730,12 @@ procedure TKMGameApp.InstantiateGameFromSave(const aSavegamePath: String; aGameM
 const
   SAVE_SUFFIX_DEBUG = '_dbg';
 var
-  loadError: String;
+  loadError, savegamePath, replayPath: String;
 begin
   // Note that when strings (i.e. aSavegamePath, aReplayPath) come from the game they are passed by a reference,
   // hence when the game is destroyed the strings are killed too. Hence we MUST! make a local copy.
-  var savegamePath := aSavegamePath;
-  var replayPath := aReplayPath;
+  savegamePath := aSavegamePath;
+  replayPath := aReplayPath;
 
   InstantiateGame(aGameMode);
 
@@ -746,6 +749,11 @@ begin
       //unless Tools > Debugger > Exception > "Stop on Delphi Exceptions" is unchecked.
       //But to normal player the dialog won't show.
       loadError := Format(gResTexts[TX_MENU_PARSE_ERROR], [savegamePath]) + '||' + E.ClassName + ': ' + E.Message;
+      {$IFDEF DARWIN}
+      WriteLn(StdErr, loadError);
+      DumpExceptionBackTrace(StdErr);
+      Flush(StdErr);
+      {$ENDIF}
       // Log the error first, because we can crash while stopping the game
       gLog.AddTime('Game creation Exception: ' + loadError
         {$IFDEF WDC} + sLineBreak + E.StackTrace {$ENDIF}
@@ -770,12 +778,12 @@ procedure TKMGameApp.InstantiateGameFromScript(const aMissionFullFilePath, aGame
                                         aMap: Byte; aGameMode: TKMGameMode; aDesiredLoc: ShortInt; aDesiredColor: Cardinal;
                                         aDifficulty: TKMMissionDifficulty = mdNone; aAIType: TKMAIType = aitNone);
 var
-  loadError: String;
+  loadError, missionFullFilePath, gameName: String;
 begin
   // Note that when strings (i.e. aMissionFullFilePath, aGameName) come from the game they are passed by a reference,
   // hence when the game is destroyed the strings are killed too. Hence we MUST! make a local copy.
-  var missionFullFilePath := aMissionFullFilePath;
-  var gameName := aGameName;
+  missionFullFilePath := aMissionFullFilePath;
+  gameName := aGameName;
 
   InstantiateGame(aGameMode);
 
@@ -1297,7 +1305,7 @@ begin
   if aFilename = '' then
   begin
     DateTimeToString(strDate, 'yyyy-mm-dd hh-nn-ss', Now); //2007-12-23 15-24-33
-    fileName := ExeDir + 'screenshots\KaM Remake ' + strDate + '.jpeg';
+    fileName := ExeDir + 'screenshots' + PathDelim + 'KaM Remake ' + strDate + '.jpeg';
   end
   else
     fileName := aFilename;
@@ -1351,7 +1359,7 @@ begin
     Render(True);
 
     DateTimeToString(dateStr, 'yyyy-mm-dd hh-nn-ss', Now); //2007-12-23 15-24-33
-    fileName := ExeDir + 'screenshots\' + gGame.Params.Name + ' ' + dateStr + IMAGE_TYPE_EXT[aImageType];
+    fileName := ExeDir + 'screenshots' + PathDelim + gGame.Params.Name + ' ' + dateStr + IMAGE_TYPE_EXT[aImageType];
 
     gRender.ReadRenderedToFBOPixels(w, h, pixelData);
 
@@ -1407,7 +1415,7 @@ begin
 
   //Some PCs seem to change 8087CW randomly between events like Timers and OnMouse*,
   //so we need to set it right before we do game logic processing
-  Set8087CW($133F);
+  ConfigureGameFPU;
 
   Inc(fGlobalTickCount);
   //Always update networking for auto reconnection and query timeouts

@@ -26,6 +26,7 @@ type
 
     property ScriptLogFile: UnicodeString read fScriptLogFile write SetScriptLogFile;
     property ErrorString: TKMScriptErrorMessage read fErrorString;
+    property RuntimeErrorOccurred: Boolean read fRuntimeErrorOccurred;
     property WarningsString: TKMScriptErrorMessage read fWarningsString;
 
     procedure HandleScriptError(aType: TKMScriptErrorType; const aError: TKMScriptErrorMessage);

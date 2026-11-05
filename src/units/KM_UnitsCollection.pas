@@ -93,6 +93,7 @@ var
   uid: Integer;
   placeTo: TKMPoint;
   pointDir: TKMPointDir;
+  placeFound: Boolean;
   U: TKMUnit;
 begin
   if aAutoPlace then
@@ -101,7 +102,7 @@ begin
     if aRequiredWalkConnect = 0 then
       aRequiredWalkConnect := gTerrain.GetWalkConnectID(aLoc.Loc);
 
-    var placeFound := gHands.FindPlaceForUnit(aLoc.Loc.X, aLoc.Loc.Y, aUnitType, placeTo, aRequiredWalkConnect);
+    placeFound := gHands.FindPlaceForUnit(aLoc.Loc.X, aLoc.Loc.Y, aUnitType, placeTo, aRequiredWalkConnect);
     if not placeFound then
     begin
       gLog.AddTime('Unable to find a place for a unit around ' + KM_Points.TypeToString(aLoc.Loc));

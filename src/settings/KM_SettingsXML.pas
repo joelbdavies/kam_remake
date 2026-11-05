@@ -22,7 +22,7 @@ type
 
 implementation
 uses
-  System.SysUtils;
+  SysUtils;
 
 
 { TKMSettingsXML }

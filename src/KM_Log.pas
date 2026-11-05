@@ -386,7 +386,7 @@ begin
                     FormatDateTime('hh:nn:ss.zzz', dtNow),
                     TimeSince(fFirstTick) / 1000,
                     TimeSince(fPreviousTick),
-                    TThread.CurrentThread.ThreadID,
+                    NativeUInt(TThread.CurrentThread.ThreadID),
                     aText]);
 
     if not FileExists(fLogPath) then

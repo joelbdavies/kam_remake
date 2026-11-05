@@ -117,11 +117,12 @@ var
 
 implementation
 uses
+  KM_FPU,
   SysUtils, Classes, TypInfo, Math,
   Dialogs,
   {$IFDEF WDC} UITypes, {$ENDIF}
   {$IFNDEF NO_OGG_SOUND}
-  Codec, VorbisFile,
+  {$IFDEF DARWIN}KM_AudioDecode,{$ELSE}Codec, VorbisFile,{$ENDIF}
   {$ENDIF}
   KromUtils,
   KM_Game, KM_Resource, 
@@ -189,10 +190,11 @@ begin
       context: PALCcontext;
       numMono, numStereo: TALCint;
     begin
+      ConfigureGameFPU;
       gLog.AddTime('OpenAL init started');
 
       fIsSoundInitialized := InitOpenAL;
-      Set8087CW($133F); //Above OpenAL call messes up FPU settings
+      ConfigureGameFPU; //Above OpenAL call messes up FPU settings
       if not fIsSoundInitialized then
       begin
         gLog.AddNoTime('OpenAL warning. OpenAL could not be initialized.');
@@ -205,7 +207,7 @@ begin
       // Open device (this is quite slow, 700-800 ms)
       //todo -cPractical: OpenAL init can be perfomed in a thread
       fALDevice := alcOpenDevice(nil); // this is supposed to select the "preferred device"
-      Set8087CW($133F); //Above OpenAL call messes up FPU settings
+      ConfigureGameFPU; //Above OpenAL call messes up FPU settings
       if fALDevice = nil then
       begin
         gLog.AddNoTime('OpenAL warning. Device could not be opened.');
@@ -217,7 +219,7 @@ begin
 
       // Create context
       context := alcCreateContext(fALDevice, nil);
-      Set8087CW($133F); //Above OpenAL call messes up FPU settings
+      ConfigureGameFPU; //Above OpenAL call messes up FPU settings
       if context = nil then
       begin
         gLog.AddNoTime('OpenAL warning. Context could not be created.');
@@ -229,7 +231,7 @@ begin
 
       // Set active context
       I := alcMakeContextCurrent(context);
-      Set8087CW($133F); //Above OpenAL call messes up FPU settings
+      ConfigureGameFPU; //Above OpenAL call messes up FPU settings
       if not (I in [AL_NO_ERROR, AL_TRUE]) then
       begin
         gLog.AddNoTime('OpenAL warning. Context could not be made current.');
@@ -246,11 +248,16 @@ begin
       alDistanceModel(AL_LINEAR_DISTANCE_CLAMPED);
       gLog.AddTime('Pre-LoadSFX init done');
 
-      alcGetIntegerv(fALDevice, ALC_MONO_SOURCES, 4, @numMono);
-      alcGetIntegerv(fALDevice, ALC_STEREO_SOURCES, 4, @numStereo);
-
-      gLog.AddTime('ALC_MONO_SOURCES %d', [numMono]);
-      gLog.AddTime('ALC_STEREO_SOURCES %d', [numStereo]);
+      numMono := 0;
+      numStereo := 0;
+      alcGetIntegerv(fALDevice, ALC_MONO_SOURCES, 1, @numMono);
+      alcGetIntegerv(fALDevice, ALC_STEREO_SOURCES, 1, @numStereo);
+      // Source-limit queries are optional in Apple's OpenAL implementation.
+      if alcGetError(fALDevice) = ALC_NO_ERROR then
+      begin
+        gLog.AddTime('ALC_MONO_SOURCES %d', [numMono]);
+        gLog.AddTime('ALC_STEREO_SOURCES %d', [numStereo]);
+      end;
 
       for I := Low(fALSounds) to High(fALSounds) do
       begin
@@ -469,9 +476,15 @@ function TKMSoundPlayer.PlaySound(aSoundID: TKMSoundEffectOriginal; const aFile:
                                   aFromScript: Boolean = False): Integer;
 var
   dif: array[1..3]of Single;
-  freeBuf{,FreeSrc}: Integer;
+  freeBuf{,FreeSrc}, I, soundId, wavSampleRate: Integer;
+  W: TKMSoundData;
   {$IFNDEF NO_OGG_SOUND}
+  {$IFDEF DARWIN}
+  decodedAudio: TBytes;
+  channels, decodedSampleRate: Integer;
+  {$ELSE}
   oggOpenResult: Integer;
+  {$ENDIF}
   {$ENDIF}
   distance: Single;
   alState: TALint;
@@ -483,11 +496,13 @@ var
   wavDuration: Cardinal;
   fileExt: String;
   {$IFNDEF NO_OGG_SOUND}
+  {$IFNDEF DARWIN}
   oggFileStream: TFileStream;
   oggVorbisFile: OggVorbis_File;
   vorbisInfo: P_Vorbis_Info;
   oggBytesRead, oggBytesChanged: Longword;
   oggBuffer: PChar;
+  {$ENDIF}
   {$ENDIF}
 begin
   Result := -1;
@@ -521,7 +536,7 @@ begin
 
   //Find free buffer and use it
   freeBuf := -1;
-  for var I := Low(fALSounds) to High(fALSounds) do
+  for I := Low(fALSounds) to High(fALSounds) do
   begin
     alGetSourcei(fALSounds[i].ALSource, AL_SOURCE_STATE, @alState);
     if alState <> AL_PLAYING then
@@ -560,6 +575,16 @@ begin
       end else if LowerCase(fileExt) = OGG_FILE_EXT then
       begin
         {$IFNDEF NO_OGG_SOUND}
+        {$IFDEF DARWIN}
+        LoadAudioPCM16(aFile, decodedAudio, decodedSampleRate, channels);
+        wavFreq := decodedSampleRate;
+        if channels = 1 then
+          wavFormat := AL_FORMAT_MONO16
+        else
+          wavFormat := AL_FORMAT_STEREO16;
+        wavSize := Length(decodedAudio);
+        AlBufferData(fALSounds[freeBuf].ALBuffer, wavFormat, @decodedAudio[0], wavSize, wavFreq);
+        {$ELSE}
         oggFileStream := TFileStream.Create(aFile, fmOpenRead or fmShareDenyNone);
         try
           oggOpenResult := ov_open_callbacks(oggFileStream, oggVorbisFile, nil, 0, ops_callbacks);
@@ -597,6 +622,7 @@ begin
           oggFileStream.Free;
         end;
         {$ENDIF}
+        {$ENDIF}
       end
       else
         raise Exception.Create('Unsupported sound file format: ' + fileExt);
@@ -620,12 +646,12 @@ begin
   end
   else
   begin
-    var soundId := Ord(aSoundID);
+    soundId := Ord(aSoundID);
     // Can not find sound with this Id, silently Exit...
     if soundId > gRes.Sounds.WavesCount then
       Exit;
 
-    var W := gRes.Sounds.fWaves[soundId];
+    W := gRes.Sounds.fWaves[soundId];
 
     Assert(W.IsLoaded, 'Sounds.dat seems to be short');
 
@@ -638,7 +664,7 @@ begin
         raise Exception.Create('Unexpected wave bit depth');
       end;
 
-      var wavSampleRate := gRes.Sounds.GetSoundSampleRate(aSoundID);
+      wavSampleRate := gRes.Sounds.GetSoundSampleRate(aSoundID);
       AlBufferData(fALSounds[freeBuf].ALBuffer, wavFormat, @W.Data[0], W.Head.DataSize, wavSampleRate);
       wavDuration := Round(W.Head.DataSize / wavSampleRate / W.Head.BytesPerSample * 1000);
     end else

@@ -1,0 +1,149 @@
+--- a/Source/uPSRuntime.pas
++++ b/Source/uPSRuntime.pas
+@@ -10,7 +10,7 @@
+ interface
+ uses
+   {$IFNDEF FPC} {$IFDEF DELPHI2010UP} System.Rtti,{$ENDIF} {$ENDIF}
+-  {$IFDEF FPC}{$IFDEF USEINVOKECALL}Rtti,{$ENDIF}{$ENDIF}
++  {$IFDEF FPC}{$IFDEF USEINVOKECALL}Rtti, ffi.manager,{$ENDIF}{$ENDIF}
+   SysUtils, uPSUtils{$IFDEF DELPHI6UP}, variants{$ENDIF}
+   {$IFNDEF PS_NOIDISPATCH}{$IFDEF DELPHI3UP}, ActiveX, Windows{$ELSE}, Ole2{$ENDIF}{$ENDIF};
+ 
+@@ -135,9 +135,16 @@
+     FExportName: tbtstring;
+     FBaseType: TPSBaseType;
+     FAttributes: TPSRuntimeAttributes;
++    {$IFDEF FPC}{$IFDEF USEINVOKECALL}
++    FNativeTypeInfo: Pointer;
++    {$ENDIF}{$ENDIF}
+   protected
+     FRealSize: Cardinal;
+   public
++
++    {$IFDEF FPC}{$IFDEF USEINVOKECALL}
++    property NativeTypeInfo: Pointer read FNativeTypeInfo write FNativeTypeInfo;
++    {$ENDIF}{$ENDIF}
+ 
+     property RealSize: Cardinal read FRealSize;
+ 
+@@ -10154,7 +10161,11 @@
+   {$ENDIF}
+ 
+   {$IFDEF USEINVOKECALL}
++    {$IFDEF FPC}
++    {$include InvokeCallFPC.inc}
++    {$ELSE}
+     {$include InvokeCall.inc}
++    {$ENDIF}
+     {$DEFINE _INVOKECALL_INC_}
+   {$ELSE}
+     {$IFDEF Delphi6UP}
+@@ -10170,7 +10181,11 @@
+ {$ELSE}
+   
+   {$IFDEF USEINVOKECALL}
++    {$IFDEF FPC}
++    {$include InvokeCallFPC.inc}
++    {$ELSE}
+     {$include InvokeCall.inc}
++    {$ENDIF}
+     {$DEFINE _INVOKECALL_INC_}
+   {$ELSE}
+   {$IFDEF Delphi6UP}
+--- /dev/null
++++ b/Source/InvokeCallFPC.inc
+@@ -0,0 +1,94 @@
++{ FPC ARM host calls use the RTL libffi manager. Composite types must be
++  associated with their native RTTI after bytecode load, before execution. }
++function PSNativeTypeInfo(aType: TPSTypeRec): PTypeInfo;
++begin
++  case aType.BaseType of
++    btU8: Result := TypeInfo(Byte);
++    btS8: Result := TypeInfo(ShortInt);
++    btU16: Result := TypeInfo(Word);
++    btS16: Result := TypeInfo(SmallInt);
++    btU32: Result := TypeInfo(Cardinal);
++    btS32: Result := TypeInfo(Integer);
++    btS64: Result := TypeInfo(Int64);
++    btSingle: Result := TypeInfo(Single);
++    btDouble: Result := TypeInfo(Double);
++    btExtended: Result := TypeInfo(Extended);
++    btCurrency: Result := TypeInfo(Currency);
++    btString: Result := TypeInfo(AnsiString);
++    btUnicodeString: Result := TypeInfo(UnicodeString);
++    btWideString: Result := TypeInfo(WideString);
++    btPChar: Result := TypeInfo(PAnsiChar);
++    btChar: Result := TypeInfo(AnsiChar);
++    btWideChar: Result := TypeInfo(WideChar);
++    btClass: Result := TypeInfo(TObject);
++    btVariant: Result := TypeInfo(Variant);
++    btArray, btStaticArray, btRecord, btSet:
++      begin
++        Result := PTypeInfo(aType.NativeTypeInfo);
++        if (Result = nil) and (aType.BaseType = btSet) then
++          case aType.RealSize of
++            1: Result := TypeInfo(Byte);
++            2: Result := TypeInfo(Word);
++            4: Result := TypeInfo(Cardinal);
++          end;
++      end;
++    else Result := nil;
++  end;
++end;
++
++function TPSExec.InnerfuseCall(_Self, Address: Pointer; CallingConv: TPSCallingConvention;
++  Params: TPSList; res: PPSVariantIFC): Boolean;
++var
++  args: TValueArray;
++  arg, returned: TValue;
++  value: PPSVariantIFC;
++  nativeType, resultType: PTypeInfo;
++  callConv: TCallConv;
++  I: Integer;
++begin
++  Result := False;
++  case CallingConv of
++    cdRegister: callConv := ccReg;
++    cdPascal: callConv := ccPascal;
++    cdCdecl: callConv := ccCdecl;
++    cdStdCall: callConv := ccStdCall;
++    else Exit;
++  end;
++
++  args := nil;
++  if _Self <> nil then
++    args := args + [TValue.From<Pointer>(_Self)];
++
++  for I := 0 to Params.Count - 1 do
++  begin
++    value := Params[I];
++    if value = nil then Exit;
++    if value.varparam then
++      arg := TValue.From<Pointer>(value.dta)
++    else if (value.aType.BaseType = btArray)
++      and (Copy(value.aType.ExportName, 1, 10) = '!OPENARRAY') then
++    begin
++      args := args + [TValue.From<Pointer>(Pointer(value.dta^))];
++      arg := TValue.From<SizeInt>(PSDynArrayGetLength(Pointer(value.dta^), value.aType) - 1);
++    end
++    else
++    begin
++      nativeType := PSNativeTypeInfo(value.aType);
++      if nativeType = nil then Exit;
++      TValue.Make(value.dta, nativeType, arg);
++    end;
++    args := args + [arg];
++  end;
++
++  resultType := nil;
++  if res <> nil then
++  begin
++    resultType := PSNativeTypeInfo(res.aType);
++    if resultType = nil then Exit;
++  end;
++  returned := Invoke(Address, args, callConv, resultType, _Self = nil, False);
++  if res = nil then
++    Result := True
++  else
++    Result := CopyArrayContents(res.dta, returned.GetReferenceToRawData, 1, res.aType);
++end;

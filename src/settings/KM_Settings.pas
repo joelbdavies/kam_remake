@@ -131,10 +131,14 @@ end;
 
 class function TKMSettings.GetDir(aSettingsLoc: TKMSettingsLocation = slShared): string;
 begin
+  {$IFDEF DARWIN}
+  Result := ExeDir;
+  {$ELSE}
   if DBG_USE_KMR_DIR_FOR_SETTINGS or (aSettingsLoc = slExeDir) then
     Result := ExtractFilePath(ParamStr(0))
   else
     Result := CreateAndGetDocumentsSavePath; // Use %My documents%/My Games/
+  {$ENDIF}
 end;
 
 

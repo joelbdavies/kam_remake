@@ -67,7 +67,7 @@ type
     destructor Destroy; override;
 
     property MenuPage: TKMMenuPageCommon read fMenuPage;
-    procedure PageChange(aDest: TKMMenuPageType; const aArgument: string = '');
+    procedure PageChange(aDest: TKMMenuPageType; const aArgument: UnicodeString = '');
     procedure AppendLoadingText(const aText: string);
 
     procedure ExportPages(const aPath: string); override;
@@ -256,7 +256,7 @@ begin
 end;
 
 
-procedure TKMMainMenuInterface.PageChange(aDest: TKMMenuPageType; const aArgument: string = '');
+procedure TKMMainMenuInterface.PageChange(aDest: TKMMenuPageType; const aArgument: UnicodeString = '');
 var
   I: Integer;
   version: UnicodeString;

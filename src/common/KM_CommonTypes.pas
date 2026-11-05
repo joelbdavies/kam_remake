@@ -65,7 +65,13 @@ type
   TCardinalEvent = procedure (aValue: Cardinal) of object;
 
   {$IFDEF FPC}
+  {$IFDEF KM_FUNCTION_REFERENCES}
+  TProc = reference to procedure;
+  TProc<T> = reference to procedure(aValue: T);
+  TProc<T1, T2> = reference to procedure(aValue1: T1; aValue2: T2);
+  {$ELSE}
   TProc = procedure;
+  {$ENDIF}
   {$ENDIF}
 
   TKMAnimLoop = packed record

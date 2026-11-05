@@ -105,9 +105,7 @@ var
   FEAT_VIDEOS_UNDER_WINE          :Boolean = False; // Enable videos under Wine
   FEAT_WARFARE_ORDER_PROPORTIONAL :Boolean = False; //New proportional approach (looks like a bad idea)
 
-  {$IFDEF WDC} //Work only in Delphi
   CACHE_DELIVERY_BIDS: Boolean = True; //Cache delivery bids cost. Must be turned ON if we want to use pathfinding for bid calc, huge impact on performance in that case
-  {$ENDIF}
 
   //These are debug things, should be False
   {Runner}
@@ -1096,9 +1094,30 @@ const
 var
   ExeDir: UnicodeString;
 
+function IsLegacyMacSaveVersion(const aVersion: AnsiString): Boolean;
+function IsSaveVersionSupported(const aVersion: AnsiString): Boolean;
+
 implementation
 uses
   SysUtils;
+
+// Only the audited native MVP layout is compatible with this upstream revision.
+// Revisit this allowlist when the upstream save layout or simulation changes.
+function IsLegacyMacSaveVersion(const aVersion: AnsiString): Boolean;
+begin
+  {$IF DEFINED(DARWIN) AND DEFINED(CPUAARCH64)}
+  Result := (GAME_REVISION_NUM = 16421) and (aVersion = 'r16406');
+  {$ELSE}
+  Result := False;
+  {$ENDIF}
+end;
+
+
+function IsSaveVersionSupported(const aVersion: AnsiString): Boolean;
+begin
+  Result := (aVersion = GAME_REVISION) or IsLegacyMacSaveVersion(aVersion);
+end;
+
 
 initialization
 begin

@@ -402,7 +402,8 @@ type
 implementation
 uses
   Math,
-  System.NetEncoding,
+  {$IFDEF WDC} System.NetEncoding, {$ENDIF}
+  {$IFDEF FPC} Base64, {$ENDIF}
   {$IFDEF FPC} zstream, {$ENDIF}
   {$IFDEF WDC} ZLib, {$ENDIF}
   KM_CommonUtils, KM_Defaults;
@@ -583,7 +584,8 @@ end;
 
 function TKMemoryStream.ToBase64: String;
 var
-  Encoding: TBase64Encoding;
+  {$IFDEF WDC} Encoding: TBase64Encoding; {$ENDIF}
+  {$IFDEF FPC} data: RawByteString; {$ENDIF}
 begin
   Result := '';
   {$IFDEF WDC}
@@ -595,7 +597,8 @@ begin
   end;
   {$ENDIF}
   {$IFDEF FPC}
-  // Not supported yet (no support was needed yet)
+  SetString(data, PAnsiChar(Memory), Size);
+  Result := EncodeStringBase64(data);
   {$ENDIF}
 end;
 
@@ -616,8 +619,11 @@ end;
 
 
 procedure TKMemoryStream.LoadFromBase64(aBase64: string);
-{$IFDEF WDC}
 var
+{$IFDEF FPC}
+  data: RawByteString;
+{$ENDIF}
+{$IFDEF WDC}
   Bytes: TBytes;
   Encoding: TBase64Encoding;
 {$ENDIF}
@@ -633,7 +639,9 @@ begin
   end;
   {$ENDIF}
   {$IFDEF FPC}
-  // Not supported yet (no support was needed yet)
+  data := DecodeStringBase64(aBase64, True);
+  if Length(data) > 0 then WriteBuffer(data[1], Length(data));
+  Position := 0;
   {$ENDIF}
 end;
 
@@ -1479,7 +1487,9 @@ begin
   // We use only Latin for Markers, hence ANSI is fine
   // But since Android does not support "AnsiString" we take "string" as input
   ReadANSI(s);
-  Assert(s = aTitle);
+  if s <> aTitle then
+    raise EReadError.CreateFmt('Invalid save marker at %d: expected %s, found %s',
+      [Position, aTitle, s]);
 end;
 
 

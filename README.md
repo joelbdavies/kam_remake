@@ -35,6 +35,8 @@ If you can offer some help in Delphi coding, menu design, documentation, graphic
 
 See [here](Docs/Readme/technical.md)
 
+[Native Apple Silicon macOS build](platform/macos/README.md)
+
 
 
 
