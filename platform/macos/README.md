@@ -95,7 +95,7 @@ python3 platform/macos/test-campaigns.py --data-dir assets.local/runtime-data \
 For the save/resume, collection-boundary and input regressions, build these additional probes after the game and stage disposable data:
 
 ```sh
-for probe in Trajectory Collection Keyboard CocoaEvent Mouse Cursor Upstream; do
+for probe in Trajectory Collection Keyboard CocoaEvent Mouse Cursor Upstream MissionScript; do
   KAM_PASCAL_ENTRY="platform/macos/probes/KM_Mac${probe}Probe.lpr" \
     platform/macos/build.sh
 done
@@ -108,7 +108,7 @@ python3 platform/macos/test-regressions.py \
   --output assets.local/regression-results
 ```
 
-Use a fresh output directory for each run. The runner requires disposable data inside this checkout's `assets.local` directory and writes logs plus `results.json`. Use `--only trajectory`, `--only collections`, `--only keyboard`, `--only mouse`, `--only cursor` or `--only upstream` to select a suite.
+Use a fresh output directory for each run. The runner requires disposable data inside this checkout's `assets.local` directory and writes logs plus `results.json`. Use `--only trajectory`, `--only collections`, `--only keyboard`, `--only mouse`, `--only cursor`, `--only upstream` or `--only mission-scripts` to select a suite.
 
 - Save/resume: TSK2 and TPR3 each run continuously to tick 6,000, then repeat with a save at tick 1,500 and resume in a fresh process. Both runs receive the same road, recruitment and formation commands where applicable. The suite compares 504 binary snapshots per mission, covering RNG/IDs, terrain, all players' resources/units/jobs/orders/AI, pathfinding, projectiles, script state, scripted sounds and custom resources. UI timing and save headers are excluded.
 - Collections: actual pending AI equipment orders and scripted sound-removal requests are saved and reloaded at counts 0, 1, 2 and 8. References and remaining acknowledgements must survive and complete. Live-game checkpoint scheduling is checked before, at and after limits 0, 1, 2, 30 and 60; large collections are prefilled just below the limit before crossing real scheduled boundaries.
@@ -117,6 +117,10 @@ Use a fresh output directory for each run. The runner requires disposable data i
 - Mouse: checks camera movement at all four monitor edges outside an inset game window, stale events rejected by the game, remote event coordinates inside the render area, right/bottom boundary exclusion, keyboard scrolling and inactive/disabled scrolling. The probe injects process-local Cocoa cursor queries and LCL activation messages; it restores the native method and never moves the user's real pointer.
 - Cursor images: compares every pixel in all 28 native Cocoa cursor images against the source sprite colors and the game's binary opacity policy. It also verifies dimensions and fully transparent padding, including the invisible cursor, and exports the native images to PNG. The native cursor is restored after inspection; the pointer position is unchanged.
 - Upstream integration: exercises replacement of the settings XML before updating hotkeys, a soldier walking past a diagonally pacing animal, replaying a game with no AI, current-revision save/replay headers, and rejection of older or unknown revisions with debug overrides disabled.
+
+The mission-script suite verifies actual event effects: mission-start and tick callbacks, signed/fractional arguments, mutable group-split arguments, typed script commands, and the TSK4 school → quarry → woodcutter unlock sequence through construction completion and save/reload. Its small synthetic script fixture is included in `probes/fixtures/mission-events.script`.
+
+Builds before the November 2026 callback fix silently skipped mission events on native ARM64. Existing saves from the same revision remain loadable, but missed startup events are not replayed automatically because they can create units or change mission state. Restart a mission for its full initialization. In TSK4, completing a quarry after the update unlocks the woodcutter when a school exists. Replays recorded by affected builds may behave differently now that scripts execute.
 
 Other probes cover Cocoa/OpenGL drawing and pixel readback, BASS/OpenAL playback, PascalScript's ARM64 host-call ABI, and XML/Base64/PNG/file operations. The data probe also exercises replay checkpoint serialization with zero, one, two and four checkpoints. Their command-line arguments are documented in each probe's usage error. Audio playback progress proves the backend is running; it does not substitute for a listener checking the selected output device.
 

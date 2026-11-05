@@ -1,6 +1,25 @@
 # Native macOS upstream-branch validation
 
-Tested on 30 October 2026 on an Apple M4 running macOS Sequoia 15.8.1. This branch is `codex/macos-upstream`, based on the native port at `57a91a1788eb743c0ebd6e4bf2b0d99bac17ed2c` and upstream `11cd5fd0e10ae6e8cfce27493564e49cd8ee11d5` (r16421).
+## Mission-script callback fix (November 2026)
+
+A TSK4 regression revealed that PascalScript's FPC ARM64 native method trampoline is empty: events were linked, but never executed. Earlier smoke tests checked for errors and consistent state without proving callback effects, so those tests did not establish working mission scripting.
+
+FPC callbacks now enter the interpreter directly. This covers ordinary events, mutable group-split parameters and script console commands. The absent-float sentinel is explicitly `Single`, avoiding FPC's inferred `Double` comparison. The save layout is unchanged.
+
+The fix was tested on Apple M4/macOS Sequoia 15.8.1 in both variants:
+
+- Upstream branch (`b2d65f039`): eight event/TSK4 checks; all 34 retail mission smoke tests; 1,008 matching save/resume snapshots; collections, keyboard, mouse and cursor checks; one simulated hour with 60 autosaves and all five rotations reloaded.
+- Player branch (`cb6c50544`): the same eight event/TSK4 checks; five version-policy checks; 1,008 matching save/resume snapshots; both original r16406 tutorial saves loaded, advanced 100 ticks and resaved/reloaded with identical state and retained headers.
+- A TSK4 save from the previous build loaded and unlocked the woodcutter after completing the school and quarry. The unlock survived another save/reload.
+- The rebuilt player app passed signature verification and launched through menu initialization against disposable data. The previous packaged app was retained locally.
+
+Existing saves are not automatically reinitialized: replaying missed startup handlers can duplicate units or change mission state. Restart a mission for its full initialization. In TSK4, a newly completed quarry triggers the woodcutter unlock if a school exists. Old recordings may replay differently now that callbacks execute; prior cross-build replay results on the player branch describe the older executable.
+
+Evidence: `assets.local/tsk4-woodcutter/`. The synthetic fixture in `probes/fixtures/mission-events.script` is distributable; retail assets and save fixtures remain excluded from Git.
+
+## Upstream branch validation
+
+Retested in November 2026 on an Apple M4 running macOS Sequoia 15.8.1. This branch is `codex/macos-upstream`, based on the native port at `57a91a1788eb743c0ebd6e4bf2b0d99bac17ed2c` and upstream `11cd5fd0e10ae6e8cfce27493564e49cd8ee11d5` (r16421).
 
 ## Save policy
 
@@ -10,14 +29,14 @@ Campaign progress remains version-independent. The `codex/macos-fpc-mvp` branch 
 
 ## Build identity
 
-- The full game and all nine probes used for this branch's tests compile with the pinned Free Pascal toolchain and Cocoa LCL library. No Lazarus IDE was used.
-- Tested executable: `assets.local/build/macos/bin/KaM_Remake`.
-- Executable SHA-256: `a844296deae9910a23acb87d185d299fc8067fe4125993178345089ad6ed7ae3`.
-- This branch was tested directly, without replacing the packaged player app. The existing six-file `assets.local/build/macos/KaM Remake.app` still matches its compatibility-enabled build manifest, with executable SHA-256 `191d30ff2bed0df4424344b50fcde8999f4ddbdd0e25d9cc04e2e85af140d9c7`.
+- The full game and all ten probes used for this branch's tests compile with the pinned Free Pascal toolchain and Cocoa LCL library. No Lazarus IDE was used.
+- Tested executable: `assets.local/tsk4-woodcutter/upstream-KaM_Remake` (archived before building the player variant).
+- Executable SHA-256: `ab01f3232e4bdaf79d133bc43124d5f760b65c9463fdf383030b7f461ab9fe1f`.
+- The player app is packaged separately from `codex/macos-fpc-mvp`; its manifest and startup evidence are under `assets.local/tsk4-woodcutter/`.
 
 ## Automated checks
 
-All runs use freshly staged disposable data under `assets.local/upstream-no-compat/data`. No original player saves are used as fixtures or modified. Evidence is under `assets.local/upstream-no-compat/`.
+Upstream tests used freshly staged disposable data under `assets.local/tsk4-woodcutter/data`. The later player-branch compatibility checks added copies of two original tutorial saves; original player files were not modified. Evidence is under `assets.local/tsk4-woodcutter/`.
 
 | Area | Result and evidence |
 | --- | --- |
@@ -28,7 +47,7 @@ All runs use freshly staged disposable data under `assets.local/upstream-no-comp
 | Mouse input | All four monitor-edge, remote-event and scrolling-gate groups pass. `regressions/mouse.log`. |
 | Cursor images | All 28 actual native cursor images match source colors, dimensions and opacity. Transparent pixels are fully clear. The player previously confirmed that the gray square is gone on the compatibility-enabled build containing the same cursor fix. `regressions/cursor.log`. |
 | Retail campaigns | All 34 TSK/TPR missions pass startup, rendering, 600 simulated ticks, save/reload/resume, and forced-victory unlock/progress checks using seed 4. These are smoke tests, not complete mission playthroughs. `campaigns/results.json`. |
-| Fresh tutorial saves and autosaves | One simulated hour plus one scheduling-boundary tick passes. All 60 minute autosaves are confirmed in the game log. Four checkpoints survive repeated named saves and overwrite; all five rotated slots reload at ticks 36,000, 35,400, 34,800, 34,200 and 33,600 and resume. `autosave-final.log` and `autosave-results.json`. |
+| Fresh tutorial saves and autosaves | One simulated hour plus one scheduling-boundary tick passes. All 60 minute autosaves are confirmed in the game log. Four checkpoints survive repeated named saves and overwrite; all five rotated slots reload at ticks 36,000, 35,400, 34,800, 34,200 and 33,600 and resume. `autosave.log` and `autosave-results.json`. |
 
 The fresh tutorial probe processes tick 36,001 because the game schedules each autosave before incrementing the tick. This lets it verify the save for minute 60 and assert the exact tick in every rotated slot.
 
