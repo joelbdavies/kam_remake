@@ -1,0 +1,65 @@
+{$EVENT evtMissionStart:ExtraStart}
+{$EVENT evtGroupBeforeOrderSplit:ExtraSplit}
+{$COMMAND eventcheck:CommandCheck}
+{$COMMAND noargs:CommandNoArgs}
+
+var Starts, Ticks: Integer;
+
+procedure OnMissionStart;
+begin
+  Starts := Starts + 1;
+end;
+
+procedure ExtraStart;
+begin
+  Starts := Starts + 10;
+end;
+
+procedure OnTick;
+begin
+  Ticks := Ticks + 1;
+  if (Starts = 11) and (Ticks = 3) then
+    Actions.HouseUnlock(0, 29);
+end;
+
+procedure OnBeacon(aPlayer, aX, aY: Integer);
+begin
+  if (aPlayer = 0) and (aX = -17) and (aY = 23) then
+    Actions.HouseUnlock(0, 5);
+end;
+
+procedure OnGameSpeedChanged(aSpeed: Single);
+begin
+  if Abs(aSpeed - 1.75) < 0.001 then
+    Actions.HouseUnlock(0, 4);
+end;
+
+procedure OnGroupBeforeOrderSplit(aGroup: Integer; var aNewType: TKMUnitType;
+  var aNewCount: Integer; var aMixed: Boolean);
+begin
+  if (aGroup > 0) and (aNewType = utBowman) and (aNewCount = 7) and not aMixed then
+  begin
+    aNewType := utAxeFighter;
+    aNewCount := 3;
+    aMixed := True;
+  end;
+end;
+
+procedure ExtraSplit(aGroup: Integer; var aNewType: TKMUnitType;
+  var aNewCount: Integer; var aMixed: Boolean);
+begin
+  if (aGroup > 0) and (aNewType = utAxeFighter) and (aNewCount = 3) and aMixed then
+    aNewCount := 2;
+end;
+
+procedure CommandCheck(aPlayer: Integer; aEnabled: Boolean; aNumber: Integer; aFraction: Single; aText: String);
+begin
+  if (aPlayer = 0) and aEnabled and (aNumber = -17)
+    and (Abs(aFraction - 1.25) < 0.001) and (aText = 'native text') then
+    Actions.HouseUnlock(0, 2);
+end;
+
+procedure CommandNoArgs(aPlayer: Integer);
+begin
+  if aPlayer = 0 then Actions.HouseUnlock(0, 20);
+end;

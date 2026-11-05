@@ -2,7 +2,7 @@ unit KM_ScriptingConsoleCommands;
 {$I KaM_Remake.inc}
 interface
 uses
-  Classes, SysUtils,
+  Classes, SysUtils, uPSRuntime,
   KM_Defaults, KM_CommonClasses;
 
 const
@@ -44,7 +44,7 @@ type
     property ProcParam[aIndex: Integer]: TKMCmdProcParamTypeKind read GetProcParamType;
     property Handler: TMethod read fHandler write fHandler;
 
-    procedure TryCallProcedure(aHandID: TKMHandID; const P: TKMScriptCommandParamsArray);
+    procedure TryCallProcedure(aHandID: TKMHandID; const P: TKMScriptCommandParamsArray; aExec: TPSExec);
     function ValidateParams(const aParams: TKMScriptCommandParamsArray): Boolean;
     function ParseParameters(const aProcedureStr: String; aRow: Integer): Boolean;
     function Params2String(const aParams: TKMScriptCommandParamsArray; aColorfull: Boolean = True): String;
@@ -647,8 +647,26 @@ begin
 end;
 
 
-procedure TKMConsoleCommand.TryCallProcedure(aHandID: TKMHandID; const P: TKMScriptCommandParamsArray);
+procedure TKMConsoleCommand.TryCallProcedure(aHandID: TKMHandID; const P: TKMScriptCommandParamsArray; aExec: TPSExec);
+{$IFDEF FPC}
+var
+  I: Integer;
+  params: array of Variant;
+{$ENDIF}
 begin
+  {$IFDEF FPC}
+  // Use the VM instead of PascalScript's empty FPC native method trampoline.
+  SetLength(params, ProcParamsCnt + 1);
+  params[0] := aHandID;
+  for I := 0 to ProcParamsCnt - 1 do
+    case fPT[I] of
+      cpkBool: params[I + 1] := P2B(P[I]);
+      cpkIntg: params[I + 1] := P2I(P[I]);
+      cpkSngl: params[I + 1] := P2S(P[I]);
+      cpkUStr: params[I + 1] := UnicodeString(P2U(P[I]));
+    end;
+  aExec.RunProcPN(params, fProcName);
+  {$ELSE}
   case fPT[0] of
     cpkUStr:  case fPT[1] of
                 cpkUStr:  case fPT[2] of
@@ -1160,6 +1178,7 @@ begin
             end;
     cpkNone:  TKMScriptCmdProc(Handler)(aHandId);
   end;
+  {$ENDIF}
 end;
 
 
