@@ -16,7 +16,7 @@ parser.add_argument('--output', type=Path, default=root / 'assets.local/regressi
 parser.add_argument('--missions', nargs='+', default=['TSK2', 'TPR3'])
 parser.add_argument('--cut-tick', type=int, default=1500)
 parser.add_argument('--end-tick', type=int, default=6000)
-parser.add_argument('--only', choices=['all', 'trajectory', 'collections', 'keyboard', 'mouse', 'cursor', 'upstream'], default='all')
+parser.add_argument('--only', choices=['all', 'trajectory', 'collections', 'keyboard', 'mouse', 'cursor', 'upstream', 'mission-scripts'], default='all')
 args = parser.parse_args()
 data = args.data_dir.resolve()
 if root / 'assets.local' not in data.parents or not (data / 'Campaigns').is_dir():
@@ -28,6 +28,7 @@ output.mkdir(parents=True, exist_ok=True)
 environment = dict(os.environ, KAM_DATA_DIR=str(data))
 results = []
 for suite, executable, expected_checks in [('upstream', 'KM_MacUpstreamProbe', 6),
+                                          ('mission-scripts', 'KM_MacMissionScriptProbe', 8),
                                           ('collections', 'KM_MacCollectionProbe', 13),
                                           ('keyboard', 'KM_MacKeyboardProbe', 1),
                                           ('cocoa-events', 'KM_MacCocoaEventProbe', 2),
@@ -43,7 +44,9 @@ for suite, executable, expected_checks in [('upstream', 'KM_MacUpstreamProbe', 6
     with log_path.open('w') as log:
         try:
             command = [str(root / 'assets.local/build/macos/bin' / executable)]
-            if suite == 'cursor':
+            if suite == 'mission-scripts':
+                command.append(str(root / 'platform/macos/probes/fixtures/mission-events.script'))
+            elif suite == 'cursor':
                 command.append(str(output / 'cursor-images'))
             run = subprocess.run(command,
                                  env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=240)

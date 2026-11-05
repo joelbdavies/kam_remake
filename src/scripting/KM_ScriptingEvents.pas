@@ -11,7 +11,8 @@ uses
 
 
 const
-  FLOAT_PARAM_NONE = MaxSingle;
+  // Match the Single parameter exactly; FPC otherwise infers a Double constant.
+  FLOAT_PARAM_NONE = Single(MaxSingle);
 
 type
   TKMScriptEntity = class
@@ -540,10 +541,28 @@ end;
 
 
 procedure TKMScriptEvents.CallEventProc(const aProc: TKMCustomEventHandler; const aIntParams: array of Integer; aFloatParam: Single);
+{$IFDEF FPC}
+var
+  I: Integer;
+  params: array of Variant;
+{$ENDIF}
 begin
   if not MethodAssigned(aProc.Handler) then Exit;
 
   try
+    {$IFDEF FPC}
+    // PascalScript's native method trampoline is empty on FPC ARM/64-bit.
+    // Enter the VM directly, preserving parameter conversion and script errors.
+    if aFloatParam <> FLOAT_PARAM_NONE then
+      fExec.RunProcPN([aFloatParam], aProc.ProcName)
+    else
+    begin
+      SetLength(params, Length(aIntParams));
+      for I := 0 to High(aIntParams) do
+        params[I] := aIntParams[I];
+      fExec.RunProcPN(params, aProc.ProcName);
+    end;
+    {$ELSE}
     if aFloatParam <> FLOAT_PARAM_NONE then
       TKMScriptEventProc1S(aProc.Handler)(aFloatParam)
     else
@@ -556,6 +575,7 @@ begin
       5: TKMScriptEventProc5I(aProc.Handler)(aIntParams[0], aIntParams[1], aIntParams[2], aIntParams[3], aIntParams[4]);
       else raise Exception.Create('Unexpected Length(aParams)');
     end;
+    {$ENDIF}
   except
     HandleScriptProcCallError('script event handler ''' + aProc.ProcName + '''');
   end;
@@ -580,7 +600,7 @@ begin
   Result := False;
   if MethodAssigned(aCmdName) then
     try
-      fConsoleCommands[AnsiString(LowerCase(aCmdName))].TryCallProcedure(aHandID, aParams);
+      fConsoleCommands[AnsiString(LowerCase(aCmdName))].TryCallProcedure(aHandID, aParams, fExec);
       Result := True;
     except
       HandleScriptProcCallError('console command handler ''' + aCmdName + '''');
@@ -934,6 +954,9 @@ procedure TKMScriptEvents.ProcGroupBeforeOrderSplit(aGroup: TKMUnitGroup; var aN
 var
   I: Integer;
   handler: TMethod;
+  {$IFDEF FPC}
+  params: array[0..3] of Variant;
+  {$ENDIF}
 begin
   {$IFDEF DBG_PERFLOG}
   gPerfLogs.SectionEnter(psScripting);
@@ -947,7 +970,18 @@ begin
         handler := fEventHandlers[evtGroupBeforeOrderSplit][I].Handler;
         if MethodAssigned(handler) then
           try
+            {$IFDEF FPC}
+            params[0] := aGroup.UID;
+            params[1] := Ord(aNewType);
+            params[2] := aNewCnt;
+            params[3] := aMixed;
+            fExec.RunProcPVar(params, fExec.GetProc(fEventHandlers[evtGroupBeforeOrderSplit][I].ProcName));
+            aNewType := TKMUnitType(Integer(params[1]));
+            aNewCnt := params[2];
+            aMixed := params[3];
+            {$ELSE}
             TKMScriptBeforeOrderSplitEvent(handler)(aGroup.UID, aNewType, aNewCnt, aMixed);
+            {$ENDIF}
           except
             HandleScriptProcCallError('script event handler ''' + fEventHandlers[evtGroupBeforeOrderSplit][I].ProcName + '''');
           end;
