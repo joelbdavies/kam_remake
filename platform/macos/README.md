@@ -62,7 +62,7 @@ After installing the data, move `KaM Remake.app` to `~/Applications` and launch 
 
 ## Existing native saves
 
-The r16421 build accepts saves made by the original native r16406 MVP without enabling the unsupported-save debug option. Existing games retain their r16406 save, replay and checkpoint headers and original animal-movement timing. This keeps their recorded history deterministic and retains the original native save layout. Newly started games use r16421 and the upstream fix for animals blocking diagonal movement. The application version still reports r16421 when an older game is loaded.
+The r16421 build accepts saves made by the original native r16406 MVP without enabling the unsupported-save debug option. Existing games retain their r16406 save, replay and checkpoint headers and original animal-movement timing. This retains the original native save layout and animal-movement rules. Newly started games use r16421 and the upstream fix for animals blocking diagonal movement. The application version still reports r16421 when an older game is loaded.
 
 Compatibility is restricted to these two audited native revisions. Other revisions and Windows saves are not covered. This is not a general save-format bypass, and future upstream updates must recheck both serialization and simulation compatibility.
 
@@ -97,7 +97,7 @@ python3 platform/macos/test-campaigns.py --data-dir assets.local/runtime-data \
 For the save/resume, collection-boundary and input regressions, build these additional probes after the game and stage disposable data:
 
 ```sh
-for probe in Trajectory Collection Keyboard CocoaEvent Mouse Cursor Compatibility; do
+for probe in Trajectory Collection Keyboard CocoaEvent Mouse Cursor Compatibility MissionScript; do
   KAM_PASCAL_ENTRY="platform/macos/probes/KM_Mac${probe}Probe.lpr" \
     platform/macos/build.sh
 done
@@ -110,7 +110,7 @@ python3 platform/macos/test-regressions.py \
   --output assets.local/regression-results
 ```
 
-Use a fresh output directory for each run. The runner requires disposable data inside this checkout's `assets.local` directory and writes logs plus `results.json`. Use `--only trajectory`, `--only collections`, `--only keyboard`, `--only mouse`, `--only cursor` or `--only upstream` to select a suite.
+Use a fresh output directory for each run. The runner requires disposable data inside this checkout's `assets.local` directory and writes logs plus `results.json`. Use `--only trajectory`, `--only collections`, `--only keyboard`, `--only mouse`, `--only cursor`, `--only upstream` or `--only mission-scripts` to select a suite.
 
 - Save/resume: TSK2 and TPR3 each run continuously to tick 6,000, then repeat with a save at tick 1,500 and resume in a fresh process. Both runs receive the same road, recruitment and formation commands where applicable. The suite compares 504 binary snapshots per mission, covering RNG/IDs, terrain, all players' resources/units/jobs/orders/AI, pathfinding, projectiles, script state, scripted sounds and custom resources. UI timing and save headers are excluded.
 - Collections: actual pending AI equipment orders and scripted sound-removal requests are saved and reloaded at counts 0, 1, 2 and 8. References and remaining acknowledgements must survive and complete. Live-game checkpoint scheduling is checked before, at and after limits 0, 1, 2, 30 and 60; large collections are prefilled just below the limit before crossing real scheduled boundaries.
@@ -140,6 +140,10 @@ python3 platform/macos/test-regressions.py \
 ```
 
 This mode only resumes the existing fixtures; it does not replace them with newly generated r16421 saves. The default cut/end ticks and missions must match the earlier run.
+
+The mission-script suite verifies actual event effects: mission-start and tick callbacks, signed/fractional arguments, mutable group-split arguments, typed script commands, and the TSK4 school → quarry → woodcutter unlock sequence through construction completion and save/reload. Its small synthetic script fixture is included in `probes/fixtures/mission-events.script`.
+
+Builds before the November 2026 callback fix silently skipped mission events on native ARM64. Existing saves remain loadable, but missed startup events are not replayed automatically because they can create units or change mission state. Restart a mission for its full initialization. In TSK4, completing a quarry after the update unlocks the woodcutter when a school exists. Replays recorded by affected builds may behave differently now that scripts execute; the legacy trajectory comparison can detect those differences.
 
 Other probes cover Cocoa/OpenGL drawing and pixel readback, BASS/OpenAL playback, PascalScript's ARM64 host-call ABI, and XML/Base64/PNG/file operations. The data probe also exercises replay checkpoint serialization with zero, one, two and four checkpoints. Their command-line arguments are documented in each probe's usage error. Audio playback progress proves the backend is running; it does not substitute for a listener checking the selected output device.
 

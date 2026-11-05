@@ -1,12 +1,33 @@
 # Native macOS MVP validation
 
+## Mission-script callback fix (November 2026)
+
+A TSK4 regression revealed that PascalScript's FPC ARM64 native method trampoline is empty: events were linked, but never executed. Earlier smoke tests checked for errors and consistent state without proving callback effects, so those tests did not establish working mission scripting.
+
+FPC callbacks now enter the interpreter directly. This covers ordinary events, mutable group-split parameters and script console commands. The absent-float sentinel is explicitly `Single`, avoiding FPC's inferred `Double` comparison. The save layout is unchanged.
+
+The fix was tested on Apple M4/macOS Sequoia 15.8.1 in both variants:
+
+- Upstream branch (`b2d65f039`): eight event/TSK4 checks; all 34 retail mission smoke tests; 1,008 matching save/resume snapshots; collections, keyboard, mouse and cursor checks; one simulated hour with 60 autosaves and all five rotations reloaded.
+- Player branch (`cb6c50544`): the same eight event/TSK4 checks; five version-policy checks; 1,008 matching save/resume snapshots; both original r16406 tutorial saves loaded, advanced 100 ticks and resaved/reloaded with identical state and retained headers.
+- A TSK4 save from the previous build loaded and unlocked the woodcutter after completing the school and quarry. The unlock survived another save/reload.
+- The rebuilt player app passed signature verification and launched through menu initialization against disposable data. The previous packaged app was retained locally.
+
+Existing saves are not automatically reinitialized: replaying missed startup handlers can duplicate units or change mission state. Restart a mission for its full initialization. In TSK4, a newly completed quarry triggers the woodcutter unlock if a school exists. Old recordings may replay differently now that callbacks execute; prior cross-build replay results below describe the older executable.
+
+Evidence: `assets.local/tsk4-woodcutter/`. The synthetic fixture in `probes/fixtures/mission-events.script` is distributable; retail assets and save fixtures remain excluded from Git.
+
+Current packaged executable SHA-256: `776d1d7965d19e6c45b619cdf305947879370f567bf6a4f8be9f34885259f879`. Package identity is recorded in `assets.local/tsk4-woodcutter/player-package-manifest.json`.
+
+## Earlier validation (October 2026)
+
 Tested on 29 October 2026 on an Apple M4 running macOS Sequoia 15.8.1. The deployment target is macOS 15.0. The executable and bundled BASS library are arm64 Mach-O binaries; neither Wine nor Rosetta is involved.
 
 ## Build identity
 
 - Current source base: upstream `11cd5fd0e10ae6e8cfce27493564e49cd8ee11d5` (r16421), integrated with the native port on `codex/macos-fpc-mvp`.
 - Original MVP source base: `ddb0a6cccfdd031c4c4ec6358a70827aa1e4ad8c` (r16406).
-- Current packaged executable SHA-256: `191d30ff2bed0df4424344b50fcde8999f4ddbdd0e25d9cc04e2e85af140d9c7` (r16421 with corrected native cursor colors and transparency).
+- Previous cursor-fix packaged executable SHA-256: `191d30ff2bed0df4424344b50fcde8999f4ddbdd0e25d9cc04e2e85af140d9c7` (r16421 with corrected native cursor colors and transparency).
 - Previous cursor-boundary executable SHA-256: `a31915f6b976b9a010aa994ca02239507094abb625fe5ea95a8b09842bc9c9c4`.
 - Previous r16421 integration executable SHA-256: `87eeb507f4c4b4959669dbb8a5e149708c11105803d43d1cdd884ea8c36c6422` (native r16406 save/replay compatibility).
 - Previous native-command-fix executable SHA-256: `82de7e736cb2a40e9123e9a2ae4d9a25e6e682ac26d83811559606a50ddf8c76` (early handling of native editing commands; package includes Dock icon).
